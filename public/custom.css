@@ -1,0 +1,713 @@
+/*
+ * Infinite Memory LLM Agent - Custom CSS Theme
+ * 
+ * Design: Glassmorphism + Cyberpunk Aesthetic
+ * Optimized for dark mode with neon accents
+ */
+
+/* ============================================================================
+   Google Fonts Import
+   ============================================================================ */
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap');
+
+/* ============================================================================
+   CSS Custom Properties (Design Tokens)
+   ============================================================================ */
+:root {
+    /* Color Palette - Deep Space Cyberpunk */
+    --bg-primary: #0a0a0f;
+    --bg-secondary: #12121a;
+    --bg-tertiary: #1a1a25;
+    
+    /* Frosted Glass Layers */
+    --glass-bg: rgba(255, 255, 255, 0.03);
+    --glass-border: rgba(255, 255, 255, 0.08);
+    --glass-hover: rgba(255, 255, 255, 0.06);
+    
+    /* Neon Accents */
+    --neon-cyan: #00d4ff;
+    --neon-purple: #bd00ff;
+    --neon-pink: #ff0080;
+    --neon-green: #00ff88;
+    
+    /* Gradient Accents */
+    --gradient-primary: linear-gradient(135deg, var(--neon-cyan), var(--neon-purple));
+    --gradient-secondary: linear-gradient(135deg, var(--neon-purple), var(--neon-pink));
+    --gradient-glow: linear-gradient(180deg, rgba(0, 212, 255, 0.15), transparent);
+    
+    /* Text Colors */
+    --text-primary: #f0f0f5;
+    --text-secondary: #a0a0b0;
+    --text-muted: #606070;
+    
+    /* Typography */
+    --font-primary: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    --font-mono: 'JetBrains Mono', 'Fira Code', 'Consolas', monospace;
+    
+    /* Shadows & Glows */
+    --shadow-sm: 0 2px 8px rgba(0, 0, 0, 0.3);
+    --shadow-md: 0 4px 16px rgba(0, 0, 0, 0.4);
+    --shadow-lg: 0 8px 32px rgba(0, 0, 0, 0.5);
+    --glow-cyan: 0 0 20px rgba(0, 212, 255, 0.3);
+    --glow-purple: 0 0 20px rgba(189, 0, 255, 0.3);
+    
+    /* Timing */
+    --transition-fast: 0.15s ease;
+    --transition-normal: 0.25s ease;
+    --transition-slow: 0.4s ease;
+    
+    /* Border Radius */
+    --radius-sm: 8px;
+    --radius-md: 12px;
+    --radius-lg: 16px;
+    --radius-xl: 24px;
+}
+
+/* ============================================================================
+   Global Styles
+   ============================================================================ */
+body {
+    font-family: var(--font-primary) !important;
+    background: var(--bg-primary) !important;
+    color: var(--text-primary) !important;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+}
+
+/* Smooth scrolling */
+* {
+    scroll-behavior: smooth;
+}
+
+/* Selection styling */
+::selection {
+    background: var(--neon-cyan);
+    color: var(--bg-primary);
+}
+
+/* ============================================================================
+   Main App Container
+   ============================================================================ */
+.MuiBox-root {
+    background: var(--bg-primary) !important;
+}
+
+/* ============================================================================
+   Sidebar Styling (Chat History)
+   ============================================================================ */
+/* Sidebar container */
+[class*="MuiDrawer"] {
+    background: var(--bg-secondary) !important;
+}
+
+[class*="MuiDrawer"] .MuiPaper-root {
+    background: linear-gradient(180deg, var(--bg-secondary) 0%, var(--bg-primary) 100%) !important;
+    border-right: 1px solid var(--glass-border) !important;
+    backdrop-filter: blur(20px);
+}
+
+/* Sidebar header */
+[class*="MuiDrawer"] header {
+    background: var(--glass-bg) !important;
+    border-bottom: 1px solid var(--glass-border) !important;
+}
+
+/* Chat history items */
+[class*="MuiList"] [class*="MuiListItem"] {
+    margin: 4px 8px !important;
+    border-radius: var(--radius-md) !important;
+    transition: all var(--transition-normal) !important;
+    background: var(--glass-bg) !important;
+    border: 1px solid transparent !important;
+}
+
+[class*="MuiList"] [class*="MuiListItem"]:hover {
+    background: var(--glass-hover) !important;
+    border-color: var(--glass-border) !important;
+    transform: translateX(4px);
+    box-shadow: var(--glow-cyan);
+}
+
+[class*="MuiList"] [class*="MuiListItemText"] {
+    color: var(--text-primary) !important;
+}
+
+[class*="MuiList"] [class*="MuiListItemText"] span {
+    font-weight: 500 !important;
+}
+
+/* ============================================================================
+   Chat Area
+   ============================================================================ */
+/* Main chat container */
+.cl-chat-container,
+[class*="StyledChatContainer"] {
+    background: var(--bg-primary) !important;
+}
+
+/* Message bubbles container */
+.cl-message-list {
+    padding: 24px !important;
+}
+
+/* ============================================================================
+   Message Bubbles - Glassmorphism Style
+   ============================================================================ */
+/* All message bubbles */
+.cl-message {
+    background: var(--glass-bg) !important;
+    backdrop-filter: blur(12px) !important;
+    border: 1px solid var(--glass-border) !important;
+    border-radius: var(--radius-lg) !important;
+    padding: 16px 20px !important;
+    margin-bottom: 16px !important;
+    transition: all var(--transition-normal) !important;
+    position: relative;
+    overflow: hidden;
+}
+
+.cl-message::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 1px;
+    background: var(--gradient-primary);
+    opacity: 0.5;
+}
+
+.cl-message:hover {
+    border-color: rgba(0, 212, 255, 0.2) !important;
+    box-shadow: var(--shadow-md), var(--glow-cyan);
+    transform: translateY(-2px);
+}
+
+/* User message styling */
+.cl-message.cl-message-user {
+    background: linear-gradient(135deg, rgba(0, 212, 255, 0.1), rgba(189, 0, 255, 0.05)) !important;
+    border-color: rgba(0, 212, 255, 0.2) !important;
+    margin-left: 48px !important;
+}
+
+/* Assistant message styling */
+.cl-message.cl-message-assistant {
+    background: var(--glass-bg) !important;
+    margin-right: 48px !important;
+}
+
+/* System message styling */
+.cl-message.cl-message-system {
+    background: linear-gradient(135deg, rgba(0, 255, 136, 0.05), transparent) !important;
+    border-color: rgba(0, 255, 136, 0.15) !important;
+    font-style: italic;
+}
+
+/* Message content text */
+.cl-message-content {
+    color: var(--text-primary) !important;
+    font-size: 15px !important;
+    line-height: 1.7 !important;
+    letter-spacing: 0.01em;
+}
+
+/* Author name styling */
+.cl-message-author {
+    color: var(--neon-cyan) !important;
+    font-weight: 600 !important;
+    font-size: 13px !important;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    margin-bottom: 8px !important;
+}
+
+/* ============================================================================
+   Code Blocks - Cyberpunk Terminal Style
+   ============================================================================ */
+pre, code {
+    font-family: var(--font-mono) !important;
+}
+
+pre {
+    background: rgba(0, 0, 0, 0.4) !important;
+    border: 1px solid var(--glass-border) !important;
+    border-radius: var(--radius-md) !important;
+    padding: 16px !important;
+    position: relative;
+    overflow-x: auto;
+}
+
+pre::before {
+    content: '>';
+    position: absolute;
+    top: 16px;
+    left: 16px;
+    color: var(--neon-green);
+    font-weight: bold;
+    animation: blink 1s step-end infinite;
+}
+
+@keyframes blink {
+    50% { opacity: 0; }
+}
+
+code {
+    background: rgba(0, 212, 255, 0.1) !important;
+    color: var(--neon-cyan) !important;
+    padding: 2px 6px !important;
+    border-radius: 4px !important;
+    font-size: 0.9em !important;
+}
+
+pre code {
+    background: transparent !important;
+    padding: 0 !important;
+    color: var(--text-primary) !important;
+}
+
+/* ============================================================================
+   Input Area - Glassmorphism
+   ============================================================================ */
+/* Input container */
+.cl-chat-input-container,
+[class*="ChatInput"] {
+    background: var(--bg-secondary) !important;
+    border-top: 1px solid var(--glass-border) !important;
+    padding: 16px 24px !important;
+}
+
+/* Text input field */
+.cl-chat-input,
+.cl-chat-input textarea,
+[class*="ChatInput"] textarea {
+    background: var(--glass-bg) !important;
+    border: 1px solid var(--glass-border) !important;
+    border-radius: var(--radius-lg) !important;
+    color: var(--text-primary) !important;
+    font-family: var(--font-primary) !important;
+    font-size: 15px !important;
+    padding: 14px 20px !important;
+    transition: all var(--transition-normal) !important;
+    backdrop-filter: blur(8px);
+}
+
+.cl-chat-input:focus,
+.cl-chat-input textarea:focus,
+[class*="ChatInput"] textarea:focus {
+    border-color: var(--neon-cyan) !important;
+    box-shadow: var(--glow-cyan) !important;
+    outline: none !important;
+    background: rgba(0, 212, 255, 0.05) !important;
+}
+
+/* Placeholder text */
+.cl-chat-input::placeholder,
+.cl-chat-input textarea::placeholder {
+    color: var(--text-muted) !important;
+}
+
+/* ============================================================================
+   Send Button
+   ============================================================================ */
+.cl-send-button,
+[class*="SendButton"],
+button[type="submit"] {
+    background: var(--gradient-primary) !important;
+    border: none !important;
+    border-radius: var(--radius-md) !important;
+    color: var(--bg-primary) !important;
+    font-weight: 600 !important;
+    padding: 12px 24px !important;
+    cursor: pointer !important;
+    transition: all var(--transition-normal) !important;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    box-shadow: var(--glow-cyan);
+}
+
+.cl-send-button:hover,
+[class*="SendButton"]:hover,
+button[type="submit"]:hover {
+    transform: translateY(-2px) scale(1.02);
+    box-shadow: 0 0 30px rgba(0, 212, 255, 0.5);
+}
+
+.cl-send-button:active,
+[class*="SendButton"]:active,
+button[type="submit"]:active {
+    transform: translateY(0) scale(0.98);
+}
+
+/* ============================================================================
+   Action Buttons (Toolbox)
+   ============================================================================ */
+/* Action button container */
+.cl-action-button,
+[class*="ActionButton"],
+.MuiChip-root {
+    background: var(--glass-bg) !important;
+    border: 1px solid var(--glass-border) !important;
+    border-radius: var(--radius-md) !important;
+    color: var(--text-primary) !important;
+    font-family: var(--font-primary) !important;
+    font-weight: 500 !important;
+    padding: 10px 18px !important;
+    margin: 4px !important;
+    cursor: pointer !important;
+    transition: all var(--transition-normal) !important;
+    backdrop-filter: blur(8px);
+    position: relative;
+    overflow: hidden;
+}
+
+.cl-action-button::before,
+[class*="ActionButton"]::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: -100%;
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.1), transparent);
+    transition: left 0.5s ease;
+}
+
+.cl-action-button:hover,
+[class*="ActionButton"]:hover,
+.MuiChip-root:hover {
+    background: var(--glass-hover) !important;
+    border-color: var(--neon-cyan) !important;
+    color: var(--neon-cyan) !important;
+    transform: translateY(-2px);
+    box-shadow: var(--glow-cyan);
+}
+
+.cl-action-button:hover::before,
+[class*="ActionButton"]:hover::before {
+    left: 100%;
+}
+
+/* Toolbox specific button */
+.cl-action-button[data-action="toolbox"] {
+    background: var(--gradient-primary) !important;
+    color: var(--bg-primary) !important;
+    font-weight: 600 !important;
+}
+
+/* Tool category buttons */
+.cl-action-button.tool-button {
+    border-color: var(--neon-purple) !important;
+}
+
+.cl-action-button.tool-button:hover {
+    border-color: var(--neon-pink) !important;
+    box-shadow: var(--glow-purple);
+}
+
+/* ============================================================================
+   Starter Buttons (Quick Actions)
+   ============================================================================ */
+.cl-starter,
+[class*="Starter"] {
+    background: var(--glass-bg) !important;
+    border: 1px solid var(--glass-border) !important;
+    border-radius: var(--radius-lg) !important;
+    padding: 20px 24px !important;
+    margin: 8px !important;
+    transition: all var(--transition-normal) !important;
+    backdrop-filter: blur(12px);
+    cursor: pointer;
+    position: relative;
+    overflow: hidden;
+}
+
+.cl-starter::after,
+[class*="Starter"]::after {
+    content: '';
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    height: 2px;
+    background: var(--gradient-primary);
+    transform: scaleX(0);
+    transition: transform var(--transition-normal);
+}
+
+.cl-starter:hover,
+[class*="Starter"]:hover {
+    background: var(--glass-hover) !important;
+    border-color: var(--neon-cyan) !important;
+    transform: translateY(-4px) scale(1.02);
+    box-shadow: var(--shadow-lg), var(--glow-cyan);
+}
+
+.cl-starter:hover::after,
+[class*="Starter"]:hover::after {
+    transform: scaleX(1);
+}
+
+.cl-starter-label,
+[class*="Starter"] span {
+    color: var(--text-primary) !important;
+    font-weight: 600 !important;
+    font-size: 15px !important;
+}
+
+/* ============================================================================
+   Steps (Collapsible Sections)
+   ============================================================================ */
+.cl-step,
+[class*="Step"] {
+    background: var(--glass-bg) !important;
+    border: 1px solid var(--glass-border) !important;
+    border-radius: var(--radius-md) !important;
+    margin: 12px 0 !important;
+    overflow: hidden;
+    transition: all var(--transition-normal) !important;
+}
+
+.cl-step:hover,
+[class*="Step"]:hover {
+    border-color: rgba(0, 212, 255, 0.3) !important;
+}
+
+.cl-step-header,
+[class*="StepHeader"] {
+    background: rgba(0, 0, 0, 0.2) !important;
+    padding: 12px 16px !important;
+    border-bottom: 1px solid var(--glass-border) !important;
+    cursor: pointer;
+}
+
+.cl-step-title,
+[class*="StepTitle"] {
+    color: var(--neon-cyan) !important;
+    font-weight: 600 !important;
+    font-size: 13px !important;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+}
+
+.cl-step-content,
+[class*="StepContent"] {
+    padding: 16px !important;
+    color: var(--text-secondary) !important;
+    font-size: 14px !important;
+    line-height: 1.6 !important;
+}
+
+/* ============================================================================
+   Scrollbar Styling
+   ============================================================================ */
+::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+}
+
+::-webkit-scrollbar-track {
+    background: var(--bg-secondary);
+    border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb {
+    background: linear-gradient(180deg, var(--neon-cyan), var(--neon-purple));
+    border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+    background: var(--neon-cyan);
+}
+
+/* ============================================================================
+   Loading & Thinking Animations
+   ============================================================================ */
+@keyframes pulse-glow {
+    0%, 100% {
+        box-shadow: 0 0 5px var(--neon-cyan);
+    }
+    50% {
+        box-shadow: 0 0 20px var(--neon-cyan), 0 0 40px var(--neon-purple);
+    }
+}
+
+@keyframes gradient-shift {
+    0% {
+        background-position: 0% 50%;
+    }
+    50% {
+        background-position: 100% 50%;
+    }
+    100% {
+        background-position: 0% 50%;
+    }
+}
+
+.cl-thinking,
+[class*="thinking"],
+[class*="loading"] {
+    animation: pulse-glow 2s ease-in-out infinite;
+}
+
+/* ============================================================================
+   Markdown Content Styling
+   ============================================================================ */
+/* Headers */
+.cl-message-content h1,
+.cl-message-content h2,
+.cl-message-content h3 {
+    color: var(--neon-cyan) !important;
+    font-weight: 700 !important;
+    margin-top: 16px !important;
+    margin-bottom: 8px !important;
+}
+
+.cl-message-content h1 { font-size: 1.5em !important; }
+.cl-message-content h2 { font-size: 1.3em !important; }
+.cl-message-content h3 { font-size: 1.1em !important; }
+
+/* Lists */
+.cl-message-content ul,
+.cl-message-content ol {
+    padding-left: 24px !important;
+    margin: 12px 0 !important;
+}
+
+.cl-message-content li {
+    margin: 6px 0 !important;
+    position: relative;
+}
+
+.cl-message-content ul li::marker {
+    color: var(--neon-cyan);
+}
+
+/* Links */
+.cl-message-content a {
+    color: var(--neon-cyan) !important;
+    text-decoration: none !important;
+    border-bottom: 1px solid transparent;
+    transition: all var(--transition-fast) !important;
+}
+
+.cl-message-content a:hover {
+    border-bottom-color: var(--neon-cyan);
+    text-shadow: 0 0 8px var(--neon-cyan);
+}
+
+/* Blockquotes */
+.cl-message-content blockquote {
+    border-left: 3px solid var(--neon-purple) !important;
+    background: rgba(189, 0, 255, 0.05) !important;
+    padding: 12px 16px !important;
+    margin: 12px 0 !important;
+    border-radius: 0 var(--radius-sm) var(--radius-sm) 0 !important;
+    color: var(--text-secondary) !important;
+    font-style: italic;
+}
+
+/* Tables */
+.cl-message-content table {
+    border-collapse: collapse;
+    width: 100%;
+    margin: 12px 0;
+}
+
+.cl-message-content th,
+.cl-message-content td {
+    border: 1px solid var(--glass-border);
+    padding: 10px 14px;
+    text-align: left;
+}
+
+.cl-message-content th {
+    background: rgba(0, 212, 255, 0.1);
+    color: var(--neon-cyan);
+    font-weight: 600;
+}
+
+.cl-message-content tr:hover {
+    background: var(--glass-hover);
+}
+
+/* ============================================================================
+   File Upload Area
+   ============================================================================ */
+.cl-file-upload,
+[class*="FileUpload"] {
+    background: var(--glass-bg) !important;
+    border: 2px dashed var(--glass-border) !important;
+    border-radius: var(--radius-lg) !important;
+    padding: 32px !important;
+    text-align: center;
+    transition: all var(--transition-normal) !important;
+}
+
+.cl-file-upload:hover,
+[class*="FileUpload"]:hover {
+    border-color: var(--neon-cyan) !important;
+    background: rgba(0, 212, 255, 0.05) !important;
+}
+
+/* ============================================================================
+   Toast Notifications
+   ============================================================================ */
+.cl-toast,
+[class*="Toast"],
+.MuiSnackbar-root {
+    background: var(--glass-bg) !important;
+    backdrop-filter: blur(12px) !important;
+    border: 1px solid var(--glass-border) !important;
+    border-radius: var(--radius-md) !important;
+    color: var(--text-primary) !important;
+}
+
+/* ============================================================================
+   Avatar Styling
+   ============================================================================ */
+.cl-avatar,
+[class*="Avatar"] {
+    border: 2px solid var(--neon-cyan) !important;
+    box-shadow: var(--glow-cyan);
+}
+
+/* ============================================================================
+   Responsive Adjustments
+   ============================================================================ */
+@media (max-width: 768px) {
+    .cl-message.cl-message-user,
+    .cl-message.cl-message-assistant {
+        margin-left: 8px !important;
+        margin-right: 8px !important;
+    }
+    
+    .cl-starter,
+    [class*="Starter"] {
+        padding: 16px !important;
+        margin: 4px !important;
+    }
+    
+    .cl-chat-input-container {
+        padding: 12px !important;
+    }
+}
+
+/* ============================================================================
+   Print Styles (for saving conversations)
+   ============================================================================ */
+@media print {
+    body {
+        background: white !important;
+        color: black !important;
+    }
+    
+    .cl-message {
+        background: #f5f5f5 !important;
+        border-color: #ddd !important;
+        box-shadow: none !important;
+    }
+    
+    ::-webkit-scrollbar {
+        display: none;
+    }
+}
