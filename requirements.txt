@@ -1,0 +1,16 @@
+# Core Dependencies
+chromadb>=0.4.0           # Vector database for archival memory
+ollama>=0.3.0             # Ollama Python client for LLM inference
+sentence-transformers>=2.2.0  # Local embeddings for document ingestion
+
+# PDF text extraction support (for ingest.py and file uploads)
+pypdf>=4.0.0
+
+# Custom tools dependencies (for tools.py)
+duckduckgo-search>=8.0.0  # Web search functionality
+fpdf>=1.7.2               # PDF generation
+simpleeval>=1.0.0         # Safe math expression evaluation
+
+# Web interface (for app.py)
+chainlit>=1.0.0           # Chat UI framework
+aiosqlite>=0.19.0         # Async SQLite for Chainlit persistence

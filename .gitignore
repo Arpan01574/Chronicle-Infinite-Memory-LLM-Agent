@@ -1,0 +1,41 @@
+# --- Python Basics ---
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# --- Virtual Environments ---
+venv/
+.venv/
+env/
+.env
+
+# --- OS Junk Files ---
+.DS_Store
+Thumbs.db
+
+# --- IDE Settings (VS Code, Pycharm) ---
+.vscode/
+.idea/
+*.swp
+
+# --- Application Data (IMPORTANT) ---
+# Ignore the heavy vector database files
+data/chromadb/
+
+# Ignore local Chat UI database
+data/chainlit.db
+.chainlit/
+
+# Ignore user uploads and downloads
+data/uploads/
+user_downloads/
+
+# --- Personal Memory ---
+# Prevent your personal memory/preferences from going to GitHub
+data/memory.json
+data/history.jsonl
+
+# Keep the data folder structure, but ignore the contents above
+# (This trick allows git to track the folder 'data' but not the files inside)
+!data/.gitkeep
