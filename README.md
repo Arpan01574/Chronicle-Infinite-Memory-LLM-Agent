@@ -110,7 +110,7 @@ All processing happens **100% locally** using Ollama, ensuring complete privacy.
 
 ```bash
 # 1. Clone the repository
-git clone https://github.com/yourusername/Chronicle-Infinite-Memory-LLM-Agent.git
+git clone https://github.com/Arpan01574/Chronicle-Infinite-Memory-LLM-Agent.git
 cd "Chronicle - Infinite Memory LLM Agent"
 
 # 2. Create and activate virtual environment
