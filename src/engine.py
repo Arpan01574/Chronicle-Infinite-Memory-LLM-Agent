@@ -108,3 +108,94 @@ class MemoryAgent:
         self._tools = None
         
         logger.info(f"✓ MemoryAgent initialized with model: {OLLAMA_MODEL}")
+    def activate_mode(self, mode_name: str, instruction: str) -> None:
+        """
+        Activate a mode by injecting a persona instruction into the system prompt.
+        
+        This allows dynamic behavior changes like "Teacher Mode" or "Coding Guide"
+        without modifying the core persona.
+        
+        Args:
+            mode_name: A unique name for this mode (e.g., "Teacher Mode").
+            instruction: The full instruction to inject into the system prompt.
+        """
+        # Remove any existing mode with the same name first
+        self.deactivate_mode(mode_name)
+        
+        self.active_modes.append({
+            "name": mode_name,
+            "instruction": instruction
+        })
+        logger.info(f"✓ Activated mode: {mode_name}")
+    def deactivate_mode(self, mode_name: str) -> None:
+        """
+        Deactivate a mode by name.
+        
+        Args:
+            mode_name: The name of the mode to remove.
+        """
+        original_count = len(self.active_modes)
+        self.active_modes = [m for m in self.active_modes if m["name"] != mode_name]
+        
+        if len(self.active_modes) < original_count:
+            logger.info(f"✓ Deactivated mode: {mode_name}")
+    def clear_all_modes(self) -> None:
+        """Clear all active modes, returning to default behavior."""
+        self.active_modes.clear()
+        logger.info("✓ All modes cleared")
+    def get_active_mode_names(self) -> list[str]:
+        """Get the names of all currently active modes."""
+        return [m["name"] for m in self.active_modes]
+    def _load_core_memory(self) -> dict:
+        """Load core memory from JSON file, creating default if not exists."""
+        try:
+            if self.memory_file.exists():
+                with open(self.memory_file, "r", encoding="utf-8") as f:
+                    memory = json.load(f)
+                logger.info(f"✓ Loaded core memory from {self.memory_file}")
+                return memory
+            else:
+                logger.info("No existing memory file, creating default...")
+                self._save_core_memory(DEFAULT_CORE_MEMORY)
+                return DEFAULT_CORE_MEMORY.copy()
+        except Exception as e:
+            logger.error(f"✗ Failed to load core memory: {e}")
+            return DEFAULT_CORE_MEMORY.copy()
+    def _save_core_memory(self, memory: Optional[dict] = None) -> None:
+        """Save core memory to JSON file."""
+        try:
+            self.memory_file.parent.mkdir(parents=True, exist_ok=True)
+            with open(self.memory_file, "w", encoding="utf-8") as f:
+                json.dump(memory or self.core_memory, f, indent=2, ensure_ascii=False)
+            logger.debug(f"✓ Saved core memory to {self.memory_file}")
+        except Exception as e:
+            logger.error(f"✗ Failed to save core memory: {e}")
+    def update_core_memory(self, section: str, key: str, value: Any) -> None:
+        """
+        Update a specific field in core memory.
+        
+        Args:
+            section: Top-level section (e.g., 'user', 'persona')
+            key: Key within the section
+            value: New value to set
+        """
+        if section in self.core_memory:
+            self.core_memory[section][key] = value
+            self._save_core_memory()
+            logger.info(f"Updated core memory: {section}.{key}")
+    def get_core_memory_string(self) -> str:
+        """Format core memory as a readable string for the system prompt."""
+        user = self.core_memory.get("user", {})
+        persona = self.core_memory.get("persona", {})
+        
+        lines = [
+            "=== CORE MEMORY ===",
+            f"User Name: {user.get('name', 'Unknown')}",
+            f"User Notes: {user.get('notes', 'None')}",
+            f"User Preferences: {', '.join(user.get('preferences', [])) or 'None'}",
+            "",
+            f"My Name: {persona.get('name', 'Jarvis')}",
+            f"My Role: {persona.get('role', 'AI Assistant')}",
+            f"My Traits: {', '.join(persona.get('traits', []))}",
+        ]
+        return "\n".join(lines)
