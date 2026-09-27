@@ -346,3 +346,142 @@ async def on_chat_resume(thread):
             content=f"⚠️ Could not fully restore session: {str(e)}",
             author="System"
         ).send()
+async def on_message(message: cl.Message):
+    """
+    Handle incoming user messages.
+
+    Processes:
+    - Text messages sent to the Memory Agent
+    - File uploads with automatic ingestion
+    - Displays inner monologue and tool calls
+    """
+    # Retrieve session state
+    agent: Optional[MemoryAgent] = cl.user_session.get("agent")
+
+    if not agent:
+        await cl.Message(
+            content="❌ Session not initialized. Please refresh the page.",
+            author="System"
+        ).send()
+        return
+
+    # Prepare the input message
+    input_message = message.content
+
+    # Handle file uploads
+    uploaded_files_info = []
+    if message.elements:
+        for element in message.elements:
+            if hasattr(element, "path") and element.path:
+                # Check if file type is supported
+                file_ext = Path(element.name).suffix.lower()
+                if file_ext not in SUPPORTED_UPLOAD_TYPES:
+                    await cl.Message(
+                        content=f"⚠️ Unsupported file type: `{file_ext}`. Supported: {', '.join(SUPPORTED_UPLOAD_TYPES)}",
+                        author="System"
+                    ).send()
+                    continue
+
+                # Save the uploaded file
+                saved_path = await save_uploaded_file(element)
+                if saved_path:
+                    # Ingest file into ChromaDB
+                    await cl.Message(
+                        content=f"📎 Processing file: **{element.name}**...",
+                        author="System"
+                    ).send()
+                    
+                    try:
+                        chunks_added = ingest_file(saved_path)
+                        await cl.Message(
+                            content=f"✅ Ingested **{element.name}** ({chunks_added} chunks added to knowledge base)",
+                            author="System"
+                        ).send()
+                    except Exception as e:
+                        await cl.Message(
+                            content=f"⚠️ Could not ingest file: {str(e)}",
+                            author="System"
+                        ).send()
+                    
+                    # Extract content for context
+                    content = extract_file_content(saved_path)
+                    preview = content[:1000] + "..." if content and len(content) > 1000 else content
+
+                    uploaded_files_info.append({
+                        "name": element.name,
+                        "path": str(saved_path.absolute()),
+                        "preview": preview,
+                    })
+
+    # Append file context to the message if files were uploaded
+    if uploaded_files_info:
+        file_context = "\n\n[SYSTEM: User uploaded files that have been added to memory]\n"
+        for file_info in uploaded_files_info:
+            file_context += f"\n📄 FILE: {file_info['name']}\n"
+            file_context += f"   Preview: {file_info['preview'][:500]}...\n"
+
+        input_message = (
+            input_message + file_context 
+            if input_message 
+            else f"Please analyze and summarize the file I just uploaded: {file_info['name']}"
+        )
+
+    # Show thinking indicator
+    thinking_msg = cl.Message(content="🤔 Thinking...")
+    await thinking_msg.send()
+
+    try:
+        # Send message to Memory Agent
+        response = agent.chat(input_message)
+
+        # Remove thinking indicator
+        await thinking_msg.remove()
+
+        # Display active modes if any
+        if response.get("active_modes"):
+            modes_str = ", ".join(response["active_modes"])
+            async with cl.Step(name=f"🎭 Active Mode: {modes_str}", type="run") as step:
+                step.output = f"Responding in {modes_str} mode"
+
+        # Display RAG context if any
+        if response.get("rag_documents"):
+            async with cl.Step(name="📚 Retrieved Knowledge", type="retrieval") as step:
+                docs_text = "\n\n---\n\n".join(response["rag_documents"][:3])
+                step.output = docs_text[:2000] + "..." if len(docs_text) > 2000 else docs_text
+
+        # Display inner monologue in a collapsible step
+        if response.get("thoughts"):
+            async with cl.Step(name="💭 Inner Monologue", type="llm") as step:
+                step.output = "\n\n".join(response["thoughts"])
+
+        # Display tool calls if any
+        if response.get("tool_calls"):
+            async with cl.Step(name="🔧 Tool Calls", type="tool") as step:
+                tool_lines = []
+                for tc in response["tool_calls"]:
+                    tool_lines.append(f"**{tc['tool']}**\nArgs: `{tc['args']}`")
+                step.output = "\n\n".join(tool_lines)
+
+        # Send the final response
+        final_answer = response.get("answer", "")
+        if final_answer:
+            await cl.Message(content=final_answer).send()
+        else:
+            await cl.Message(
+                content="I processed your request but have no direct response. Check the inner monologue for details.",
+            ).send()
+
+    except Exception as e:
+        # Remove thinking indicator on error
+        await thinking_msg.remove()
+
+        await cl.Message(
+            content=(
+                f"❌ **Error processing your request**\n\n"
+                f"```\n{str(e)}\n```\n\n"
+                f"Please check:\n"
+                f"1. Is Ollama running? (`ollama serve`)\n"
+                f"2. Is the model pulled? (`ollama pull hermes3:8b`)\n"
+            ),
+            author="System"
+        ).send()
