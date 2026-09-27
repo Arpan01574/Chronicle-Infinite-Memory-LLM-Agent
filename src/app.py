@@ -219,3 +219,130 @@ def extract_file_content(file_path: Path) -> Optional[str]:
 
     except Exception as e:
         return f"[Error reading file {file_path.name}: {str(e)}]"
+async def save_uploaded_file(element) -> Optional[Path]:
+    """
+    Save an uploaded file to the uploads directory.
+
+    Args:
+        element: The Chainlit file element.
+
+    Returns:
+        Path: The saved file path, or None if saving failed.
+    """
+    try:
+        # Ensure uploads directory exists
+        UPLOADS_DIR.mkdir(parents=True, exist_ok=True)
+
+        # Generate unique filename with timestamp
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        original_name = Path(element.name)
+        new_filename = f"{timestamp}_{original_name.stem}{original_name.suffix}"
+        dest_path = UPLOADS_DIR / new_filename
+
+        # Copy file to uploads directory
+        shutil.copy(element.path, dest_path)
+
+        return dest_path
+
+    except Exception as e:
+        print(f"Error saving uploaded file: {e}")
+        return None
+async def on_chat_start():
+    """
+    Initialize the chat session.
+
+    Called when a new chat session begins. Sets up:
+    - MemoryAgent initialization
+    - Session state storage
+    """
+    # Show a loading message
+    init_msg = cl.Message(
+        content="🔄 Initializing Jarvis...",
+        author="System"
+    )
+    await init_msg.send()
+
+    try:
+        # Initialize the Memory Agent
+        agent = MemoryAgent()
+        
+        # Store in session for later use
+        cl.user_session.set("agent", agent)
+
+        settings = await cl.ChatSettings(
+            [
+                Select(
+                    id="agent_mode",
+                    label="🎭 Agent Mode",
+                    description="Select how Jarvis should behave",
+                    values=list(MODE_PROMPTS.keys()),
+                    initial_value="General Assistant",
+                ),
+            ]
+        ).send()
+
+        # Get memory stats for display
+        stats = agent.get_memory_stats()
+        docs_count = stats.get("documents_count", 0)
+
+        # Remove loading message
+        await init_msg.remove()
+
+        # Welcome message
+        await cl.Message(
+            content=(
+                "👋 Hello! I'm **Jarvis**, your AI assistant with infinite memory.\n\n"
+                f"📊 **Memory Status**: {docs_count} documents in knowledge base\n\n"
+                "**Quick Start:**\n"
+                "- Use the **⚙️ Settings** (gear icon) to change my mode:\n"
+                "  - 🎓 **Teacher Mode** - I'll teach via Socratic questioning\n"
+                "  - 💻 **Python/JS Coder** - I'll follow strict coding standards\n"
+                "  - 🔍 **Code Reviewer** - I'll review your code thoroughly\n\n"
+                "- Try the **starter buttons** above for common tasks\n"
+                "- **Upload files** (PDF, TXT, MD) for me to analyze\n\n"
+                "How can I help you today?"
+            ),
+        ).send()
+
+    except Exception as e:
+        await init_msg.remove()
+        await cl.Message(
+            content=(
+                f"❌ **Initialization Error**\n\n"
+                f"Could not initialize the Memory Agent.\n\n"
+                f"Please ensure:\n"
+                f"1. Ollama is running with the `hermes3:8b` model\n"
+                f"2. ChromaDB dependencies are installed\n\n"
+                f"```bash\n"
+                f"ollama pull hermes3:8b\n"
+                f"pip install chromadb sentence-transformers ollama\n"
+                f"```\n\n"
+                f"Error: {str(e)}"
+            ),
+            author="System"
+        ).send()
+async def on_chat_resume(thread):
+    """
+    Resume a previous chat session.
+    
+    Called when a user selects a chat from the history sidebar.
+    Reinitializes the MemoryAgent for the resumed session.
+    """
+    try:
+        # Initialize the Memory Agent for this resumed session
+        agent = MemoryAgent()
+        cl.user_session.set("agent", agent)
+        
+        await cl.Message(
+            content=(
+                "🔄 **Session Resumed**\n\n"
+                "Welcome back! I've loaded your previous conversation.\n"
+                "Use **⚙️ Settings** to change my mode, or continue chatting!"
+            ),
+        ).send()
+        
+    except Exception as e:
+        await cl.Message(
+            content=f"⚠️ Could not fully restore session: {str(e)}",
+            author="System"
+        ).send()
