@@ -199,3 +199,67 @@ class MemoryAgent:
             f"My Traits: {', '.join(persona.get('traits', []))}",
         ]
         return "\n".join(lines)
+    def _load_history(self) -> list[dict]:
+        """
+        Load recent conversation history from JSONL.
+        Efficiently reads only the last N lines.
+        """
+        if self.memory_file.parent.joinpath("history.jsonl").exists():
+            history = []
+            try:
+                with open(self.memory_file.parent / "history.jsonl", "r", encoding="utf-8") as f:
+                    for line in f:
+                        if line.strip():
+                            history.append(json.loads(line))
+                
+                # Return only the last N messages
+                return history[-MAX_HISTORY_MESSAGES:]
+            except Exception as e:
+                logger.error(f"Failed to load history: {e}")
+        return []
+    def _append_to_history(self, user_msg: str, ai_msg: str) -> None:
+        """
+        Append the new interaction to the history file as a single line (JSONL).
+        This is O(1) - instant, regardless of file size.
+        """
+        try:
+            timestamp = datetime.now().isoformat()
+            
+            # Prepare entries
+            user_entry = {"role": "user", "content": user_msg, "timestamp": timestamp}
+            ai_entry = {"role": "assistant", "content": ai_msg, "timestamp": timestamp}
+            
+            # Append directly to file
+            with open(self.memory_file.parent / "history.jsonl", "a", encoding="utf-8") as f:
+                f.write(json.dumps(user_entry) + "\n")
+                f.write(json.dumps(ai_entry) + "\n")
+                
+        except Exception as e:
+            logger.error(f"Failed to save history: {e}")
+    def _archive_interaction(self, user_msg: str, ai_msg: str) -> None:
+        """Save the interaction to ChromaDB for long-term recall."""
+        try:
+            import uuid
+            from datetime import datetime
+            
+            # Create a searchable text blob
+            content = f"Date: {datetime.now().isoformat()}\nUser: {user_msg}\nJarvis: {ai_msg}"
+            
+            self.collection.add(
+                documents=[content],
+                metadatas=[{"source": "conversation_history", "date": datetime.now().isoformat()}],
+                ids=[str(uuid.uuid4())]
+            )
+            logger.debug("✓ Archived interaction to ChromaDB")
+        except Exception as e:
+            logger.error(f"Failed to archive interaction: {e}")
+    def _init_chromadb(self) -> chromadb.PersistentClient:
+        """Initialize ChromaDB persistent client."""
+        try:
+            self.chroma_path.mkdir(parents=True, exist_ok=True)
+            client = chromadb.PersistentClient(path=str(self.chroma_path))
+            logger.info(f"✓ ChromaDB initialized at {self.chroma_path}")
+            return client
+        except Exception as e:
+            logger.error(f"✗ Failed to initialize ChromaDB: {e}")
+            raise
