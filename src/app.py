@@ -485,3 +485,14 @@ async def on_message(message: cl.Message):
             ),
             author="System"
         ).send()
+async def on_chat_end():
+    """Called when the chat session ends. Cleanup any resources if needed."""
+    print("Chat session ended")
+async def on_stop():
+    """Called when the user stops a running response."""
+    agent: Optional[MemoryAgent] = cl.user_session.get("agent")
+    if agent:
+        print("User stopped the response")
+if __name__ == "__main__":
+    print("Run this application with: chainlit run src/app.py -w")
+    print("The -w flag enables hot reloading during development.")
