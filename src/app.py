@@ -155,3 +155,67 @@ async def on_settings_update(settings: dict):
             content="✅ Returned to **General Assistant** mode.",
             author="Jarvis"
         ).send()
+async def set_starters():
+    """
+    Define starter buttons displayed on a fresh chat screen.
+    These provide quick access to common agent capabilities.
+    """
+    return [
+        cl.Starter(
+            label="🎓 Guided Learning",
+            message="I want to learn about the fundamentals of machine learning. Can you teach me?",
+            icon="/public/teacher.svg",
+        ),
+        cl.Starter(
+            label="🌐 Web Search",
+            message="Search the web for the latest news about artificial intelligence.",
+            icon="/public/search.svg",
+        ),
+        cl.Starter(
+            label="📄 Summarize File",
+            message="I will upload a file, please summarize it for me.",
+            icon="/public/document.svg",
+        ),
+        cl.Starter(
+            label="💻 Code Helper",
+            message="Help me write a Python function that calculates the Fibonacci sequence.",
+            icon="/public/code.svg",
+        ),
+    ]
+def extract_file_content(file_path: Path) -> Optional[str]:
+    """
+    Extract text content from an uploaded file for display/preview.
+
+    Args:
+        file_path: Path to the uploaded file.
+
+    Returns:
+        str: Extracted text content, or None if extraction failed.
+    """
+    suffix = file_path.suffix.lower()
+
+    try:
+        # Text-based files
+        if suffix in {".txt", ".md"}:
+            return file_path.read_text(encoding="utf-8")
+
+        # PDF files
+        elif suffix == ".pdf":
+            try:
+                from pypdf import PdfReader
+
+                reader = PdfReader(file_path)
+                text_parts = []
+                for page in reader.pages:
+                    text = page.extract_text()
+                    if text:
+                        text_parts.append(text)
+                return "\n\n".join(text_parts) if text_parts else None
+            except ImportError:
+                return f"[PDF file uploaded: {file_path.name} - pypdf not installed for extraction]"
+
+        else:
+            return f"[File uploaded: {file_path.name}]"
+
+    except Exception as e:
+        return f"[Error reading file {file_path.name}: {str(e)}]"
