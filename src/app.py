@@ -94,3 +94,64 @@ def get_data_layer():
     return SQLAlchemyDataLayer(
         conninfo=f"sqlite+aiosqlite:///{db_path}"
     )
+def rename_author(orig_author: str) -> str:
+    """Rename the default author names for a more personalized experience."""
+    rename_map = {
+        "Assistant": "Jarvis",
+        "assistant": "Jarvis",
+        "Chatbot": "Jarvis",
+    }
+    return rename_map.get(orig_author, orig_author)
+'''@cl.set_chat_settings
+async def set_chat_settings():
+    """
+    Define the settings panel with mode selection.
+    
+    This replaces the old Toolbox action buttons with a proper
+    settings dropdown accessible via the gear icon.
+    """
+    return [
+        Select(
+            id="agent_mode",
+            label="🎭 Agent Mode",
+            description="Select how Jarvis should behave",
+            values=list(MODE_PROMPTS.keys()),
+            initial_value="General Assistant",
+        ),
+    ]
+'''
+async def on_settings_update(settings: dict):
+    """
+    Handle mode changes from the settings panel.
+    
+    When the user selects a new mode, immediately inject it
+    into the agent's system prompt.
+    """
+    agent: Optional[MemoryAgent] = cl.user_session.get("agent")
+    
+    if not agent:
+        await cl.Message(
+            content="⚠️ Agent not initialized. Please refresh the page.",
+            author="System"
+        ).send()
+        return
+    
+    selected_mode = settings.get("agent_mode", "General Assistant")
+    
+    # Clear all existing modes first
+    agent.clear_all_modes()
+    
+    # Activate the new mode if it has a prompt
+    mode_prompt = MODE_PROMPTS.get(selected_mode)
+    
+    if mode_prompt:
+        agent.activate_mode(selected_mode, mode_prompt)
+        await cl.Message(
+            content=f"✅ **{selected_mode}** activated! I'll now behave accordingly.",
+            author="Jarvis"
+        ).send()
+    else:
+        await cl.Message(
+            content="✅ Returned to **General Assistant** mode.",
+            author="Jarvis"
+        ).send()
