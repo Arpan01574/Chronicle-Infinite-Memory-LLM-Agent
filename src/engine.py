@@ -364,3 +364,119 @@ class MemoryAgent:
         lines.append('{"tool": "tool_name", "args": {"param1": "value1"}}')
         
         return "\n".join(lines)
+    def _parse_tool_call(self, response: str) -> Optional[dict]:
+        """
+        Parse a tool call from the LLM response.
+        Handles nested JSON objects by balancing brackets.
+        """
+        try:
+            # 1. Quick check: does it contain the tool trigger?
+            if '"tool":' not in response:
+                return None
+            
+            # 2. Find the start of the JSON object
+            start_idx = response.find('{')
+            if start_idx == -1:
+                return None
+                
+            # 3. Stack-based extraction to handle nested brackets (args: { ... })
+            balance = 0
+            for i in range(start_idx, len(response)):
+                char = response[i]
+                if char == '{':
+                    balance += 1
+                elif char == '}':
+                    balance -= 1
+                    
+                # If balance returns to 0, we found the closing brace of the main object
+                if balance == 0:
+                    json_str = response[start_idx : i+1]
+                    try:
+                        # Attempt to parse
+                        parsed = json.loads(json_str)
+                        if "tool" in parsed:
+                            return parsed
+                    except json.JSONDecodeError:
+                        # If this chunk failed, keep looking (e.g. if we found a nested { first)
+                        continue
+                        
+            return None
+            
+        except Exception as e:
+            logger.error(f"Tool parsing error: {e}")
+            return None
+    def _execute_tool(self, tool_name: str, args: dict) -> str:
+        """
+        Execute a tool and return the result.
+        
+        Args:
+            tool_name: Name of the tool to execute.
+            args: Arguments to pass to the tool.
+        
+        Returns:
+            String result from the tool execution.
+        """
+        tools = self._get_tools()
+        runner = tools["runner"]
+        
+        try:
+            logger.info(f"🔧 Executing tool: {tool_name} with args: {args}")
+            result = runner(tool_name, args)
+            logger.info(f"✓ Tool execution complete: {tool_name}")
+            final_output = self._process_memory_request(str(result))
+            return final_output
+        except Exception as e:
+            error_msg = f"Tool execution failed: {str(e)}"
+            logger.error(f"✗ {error_msg}")
+            return error_msg
+    def _process_memory_request(self, tool_output: str) -> str:
+        """
+        Scans tool output for memory update triggers and applies them to core memory.
+        """
+        if "MEMORY_UPDATE_REQUEST" not in tool_output:
+            return tool_output
+
+        # Regex to extract the structured data sent by tools.py
+        pattern = r"Section: (.*?)\n\s*Field: (.*?)\n\s*Value: (.*?)\n\s*Operation: (.*?)\n"
+        match = re.search(pattern, tool_output, re.DOTALL)
+        
+        if not match:
+            return tool_output + "\n[System: Failed to parse memory update request]"
+
+        section, field, value, operation = match.groups()
+        section = section.strip()
+        field = field.strip()
+        value = value.strip()
+        operation = operation.strip()
+
+        try:
+            # 1. Target the section
+            if section not in self.core_memory:
+                return tool_output + f"\n[System: Error - Section '{section}' does not exist]"
+            
+            target = self.core_memory[section]
+
+            # 2. Apply the update
+            if operation == "append":
+                # Handle lists (e.g., traits, preferences)
+                if field not in target:
+                    target[field] = []
+                
+                if isinstance(target[field], list):
+                    target[field].append(value)
+                else:
+                    # Convert single value to list if needed
+                    target[field] = [target[field], value]
+            else:
+                # Handle standard replacement
+                target[field] = value
+
+            # 3. Save to Disk
+            self._save_core_memory()
+            
+            logger.info(f"💾 Memory Persisted: {section}.{field} = {value}")
+            return tool_output + f"\n[System: Successfully updated {section}.{field}]"
+
+        except Exception as e:
+            logger.error(f"Memory Write Error: {e}")
+            return tool_output + f"\n[System: Memory Write Error - {str(e)}]"
