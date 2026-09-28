@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 """
 Memory Agent Engine - Core Brain for Infinite Memory LLM Agent.
 
@@ -20,6 +21,7 @@ Usage:
     response = agent.chat("Hello, who am I?")
     print(response["answer"])
 """
+
 import json
 import logging
 import re
@@ -27,13 +29,26 @@ import sys
 from pathlib import Path
 from typing import Any, Optional
 from datetime import datetime
+
 import chromadb
 import ollama
+
+# -----------------------------------------------------------------------------
+# Configuration
+# -----------------------------------------------------------------------------
+
+# LLM Model Configuration
 OLLAMA_MODEL: str = "hermes3:8b"
+
+# ChromaDB Configuration
 CHROMA_DB_PATH: Path = Path("data/chromadb")
 COLLECTION_NAME: str = "personal_knowledge"
+
+# Core Memory Configuration
 MEMORY_FILE: Path = Path("data/memory.json")
 HISTORY_FILE: Path = Path("data/history.json")
+
+# Default Core Memory Structure
 DEFAULT_CORE_MEMORY = {
     "user": {
         "name": "Unknown",
@@ -55,9 +70,15 @@ DEFAULT_CORE_MEMORY = {
         "last_interaction": None
     }
 }
+
+# RAG Configuration
 RAG_TOP_K: int = 3  # Number of documents to retrieve
 RAG_MIN_SIMILARITY: float = 0.3  # Minimum similarity threshold
+
+# Context Window Management
 MAX_HISTORY_MESSAGES: int = 10  # Keep last N messages in context
+
+# Logging Setup
 logging.basicConfig(
     level=logging.INFO,
     format="%(asctime)s | %(levelname)-8s | %(name)s | %(message)s",
@@ -65,6 +86,13 @@ logging.basicConfig(
     handlers=[logging.StreamHandler(sys.stdout)],
 )
 logger = logging.getLogger(__name__)
+
+
+# -----------------------------------------------------------------------------
+# Memory Agent Class
+# -----------------------------------------------------------------------------
+
+
 class MemoryAgent:
     """
     A lightweight AI agent with persistent memory and tool capabilities.
@@ -83,6 +111,7 @@ class MemoryAgent:
         conversation_history: List of recent messages for context
         active_modes: List of active persona/behavior modifiers
     """
+    
     def __init__(self, memory_file: Optional[Path] = None, chroma_path: Optional[Path] = None):
         """
         Initialize the Memory Agent.
@@ -108,6 +137,11 @@ class MemoryAgent:
         self._tools = None
         
         logger.info(f"✓ MemoryAgent initialized with model: {OLLAMA_MODEL}")
+    
+    # -------------------------------------------------------------------------
+    # Active Mode Management (NEW)
+    # -------------------------------------------------------------------------
+    
     def activate_mode(self, mode_name: str, instruction: str) -> None:
         """
         Activate a mode by injecting a persona instruction into the system prompt.
@@ -127,6 +161,7 @@ class MemoryAgent:
             "instruction": instruction
         })
         logger.info(f"✓ Activated mode: {mode_name}")
+    
     def deactivate_mode(self, mode_name: str) -> None:
         """
         Deactivate a mode by name.
@@ -139,13 +174,20 @@ class MemoryAgent:
         
         if len(self.active_modes) < original_count:
             logger.info(f"✓ Deactivated mode: {mode_name}")
+    
     def clear_all_modes(self) -> None:
         """Clear all active modes, returning to default behavior."""
         self.active_modes.clear()
         logger.info("✓ All modes cleared")
+    
     def get_active_mode_names(self) -> list[str]:
         """Get the names of all currently active modes."""
         return [m["name"] for m in self.active_modes]
+    
+    # -------------------------------------------------------------------------
+    # Core Memory Management
+    # -------------------------------------------------------------------------
+    
     def _load_core_memory(self) -> dict:
         """Load core memory from JSON file, creating default if not exists."""
         try:
@@ -161,6 +203,7 @@ class MemoryAgent:
         except Exception as e:
             logger.error(f"✗ Failed to load core memory: {e}")
             return DEFAULT_CORE_MEMORY.copy()
+    
     def _save_core_memory(self, memory: Optional[dict] = None) -> None:
         """Save core memory to JSON file."""
         try:
@@ -170,6 +213,7 @@ class MemoryAgent:
             logger.debug(f"✓ Saved core memory to {self.memory_file}")
         except Exception as e:
             logger.error(f"✗ Failed to save core memory: {e}")
+    
     def update_core_memory(self, section: str, key: str, value: Any) -> None:
         """
         Update a specific field in core memory.
@@ -183,6 +227,7 @@ class MemoryAgent:
             self.core_memory[section][key] = value
             self._save_core_memory()
             logger.info(f"Updated core memory: {section}.{key}")
+    
     def get_core_memory_string(self) -> str:
         """Format core memory as a readable string for the system prompt."""
         user = self.core_memory.get("user", {})
@@ -199,6 +244,7 @@ class MemoryAgent:
             f"My Traits: {', '.join(persona.get('traits', []))}",
         ]
         return "\n".join(lines)
+    
     def _load_history(self) -> list[dict]:
         """
         Load recent conversation history from JSONL.
@@ -217,6 +263,7 @@ class MemoryAgent:
             except Exception as e:
                 logger.error(f"Failed to load history: {e}")
         return []
+    
     def _append_to_history(self, user_msg: str, ai_msg: str) -> None:
         """
         Append the new interaction to the history file as a single line (JSONL).
@@ -236,6 +283,7 @@ class MemoryAgent:
                 
         except Exception as e:
             logger.error(f"Failed to save history: {e}")
+
     def _archive_interaction(self, user_msg: str, ai_msg: str) -> None:
         """Save the interaction to ChromaDB for long-term recall."""
         try:
@@ -253,6 +301,11 @@ class MemoryAgent:
             logger.debug("✓ Archived interaction to ChromaDB")
         except Exception as e:
             logger.error(f"Failed to archive interaction: {e}")
+    
+    # -------------------------------------------------------------------------
+    # ChromaDB (Archival Memory)
+    # -------------------------------------------------------------------------
+    
     def _init_chromadb(self) -> chromadb.PersistentClient:
         """Initialize ChromaDB persistent client."""
         try:
@@ -263,6 +316,7 @@ class MemoryAgent:
         except Exception as e:
             logger.error(f"✗ Failed to initialize ChromaDB: {e}")
             raise
+    
     def _get_or_create_collection(self) -> chromadb.Collection:
         """Get or create the document collection in ChromaDB."""
         try:
@@ -276,6 +330,7 @@ class MemoryAgent:
         except Exception as e:
             logger.error(f"✗ Failed to get/create collection: {e}")
             raise
+    
     def query_archival_memory(self, query: str, top_k: int = RAG_TOP_K) -> list[str]:
         """
         Query ChromaDB for relevant document chunks.
@@ -321,6 +376,11 @@ class MemoryAgent:
         except Exception as e:
             logger.error(f"✗ RAG query failed: {e}")
             return []
+    
+    # -------------------------------------------------------------------------
+    # Tool Management
+    # -------------------------------------------------------------------------
+    
     def _get_tools(self) -> dict:
         """Lazy-load tools to avoid circular imports."""
         if self._tools is None:
@@ -345,6 +405,7 @@ class MemoryAgent:
                 "runner": run_tool
             }
         return self._tools
+    
     def get_tools_description(self) -> str:
         """Get a formatted description of available tools for the system prompt."""
         tools = self._get_tools()["registry"]
@@ -364,6 +425,7 @@ class MemoryAgent:
         lines.append('{"tool": "tool_name", "args": {"param1": "value1"}}')
         
         return "\n".join(lines)
+    
     def _parse_tool_call(self, response: str) -> Optional[dict]:
         """
         Parse a tool call from the LLM response.
@@ -405,6 +467,7 @@ class MemoryAgent:
         except Exception as e:
             logger.error(f"Tool parsing error: {e}")
             return None
+    
     def _execute_tool(self, tool_name: str, args: dict) -> str:
         """
         Execute a tool and return the result.
@@ -429,6 +492,7 @@ class MemoryAgent:
             error_msg = f"Tool execution failed: {str(e)}"
             logger.error(f"✗ {error_msg}")
             return error_msg
+    
     def _process_memory_request(self, tool_output: str) -> str:
         """
         Scans tool output for memory update triggers and applies them to core memory.
@@ -480,6 +544,11 @@ class MemoryAgent:
         except Exception as e:
             logger.error(f"Memory Write Error: {e}")
             return tool_output + f"\n[System: Memory Write Error - {str(e)}]"
+        
+    # -------------------------------------------------------------------------
+    # System Prompt Construction
+    # -------------------------------------------------------------------------
+    
     def _build_system_prompt(self, rag_context: list[str]) -> str:
         """
         Build the complete system prompt with all context.
@@ -537,3 +606,315 @@ Assistant: {"tool": "update_core_memory", "args": {"section": "user", "field": "
         parts.append("\n" + self.get_tools_description())
         
         return "\n\n".join(parts)
+    
+    # -------------------------------------------------------------------------
+    # Chat Interface
+    # -------------------------------------------------------------------------
+    
+    def chat(self, user_message: str, max_tool_iterations: int = 3) -> dict[str, Any]:
+        """
+        Process a user message and generate a response.
+        
+        This is the main entry point for interacting with the agent.
+        It handles:
+        - RAG context retrieval
+        - LLM inference via Ollama
+        - Tool execution loop
+        - Internal monologue extraction
+        
+        Args:
+            user_message: The user's input message.
+            max_tool_iterations: Maximum number of tool calls per turn.
+        
+        Returns:
+            Dict with keys:
+                - 'answer': The final response text
+                - 'thoughts': List of internal monologue strings
+                - 'tool_calls': List of tool calls made
+                - 'rag_documents': Documents retrieved from ChromaDB
+                - 'active_modes': List of currently active mode names
+        """
+        logger.info(f"📨 User: {user_message[:100]}...")
+        
+        result = {
+            "answer": "",
+            "thoughts": [],
+            "tool_calls": [],
+            "rag_documents": [],
+            "active_modes": self.get_active_mode_names()
+        }
+        
+        # Step 1: Query archival memory for relevant context
+        rag_context = self.query_archival_memory(user_message)
+        result["rag_documents"] = rag_context
+        
+        # Step 2: Build system prompt
+        system_prompt = self._build_system_prompt(rag_context)
+        
+        # Step 3: Prepare messages for Ollama
+        messages = [{"role": "system", "content": system_prompt}]
+        
+        # Add conversation history (limited to last N messages)
+        for msg in self.conversation_history[-MAX_HISTORY_MESSAGES:]:
+            messages.append(msg)
+        
+        # Add current user message
+        messages.append({"role": "user", "content": user_message})
+        
+        # Step 4: LLM inference loop (with tool execution)
+        iteration = 0
+        final_response = ""
+        
+        while iteration < max_tool_iterations:
+            iteration += 1
+            logger.debug(f"LLM iteration {iteration}/{max_tool_iterations}")
+            
+            try:
+                # Call Ollama
+                response = ollama.chat(
+                    model=OLLAMA_MODEL,
+                    messages=messages,
+                    options={
+                        "temperature": 0.7,
+                        "top_p": 0.9,
+                        "num_ctx": 4096,
+                    }
+                )
+                
+                assistant_content = response["message"]["content"]
+                logger.debug(f"LLM response: {assistant_content[:200]}...")
+                
+            except Exception as e:
+                logger.error(f"✗ Ollama call failed: {e}")
+                result["answer"] = f"I encountered an error: {str(e)}"
+                return result
+            
+            # Extract thinking/internal monologue
+            thinking_match = re.search(
+                r'<thinking>(.*?)</thinking>',
+                assistant_content,
+                re.DOTALL
+            )
+            if thinking_match:
+                thought = thinking_match.group(1).strip()
+                result["thoughts"].append(thought)
+                # Remove thinking from display
+                assistant_content = re.sub(
+                    r'<thinking>.*?</thinking>',
+                    '',
+                    assistant_content,
+                    flags=re.DOTALL
+                ).strip()
+            
+            # Check for tool call
+            tool_call = self._parse_tool_call(assistant_content)
+            
+            if tool_call:
+                tool_name = tool_call.get("tool", "")
+                tool_args = tool_call.get("args", {})
+                
+                # Handle both dict and string args
+                if isinstance(tool_args, str):
+                    tool_args = {"input": tool_args}
+                
+                result["tool_calls"].append({
+                    "tool": tool_name,
+                    "args": tool_args
+                })
+                
+                # Execute tool
+                tool_result = self._execute_tool(tool_name, tool_args)
+                
+                # Add tool interaction to messages
+                messages.append({
+                    "role": "assistant",
+                    "content": f"[Tool call: {tool_name}]"
+                })
+                messages.append({
+                    "role": "user",
+                    "content": f"[Tool result for {tool_name}]:\n{tool_result}\n\nNow provide your response to the user based on this result."
+                })
+                
+                # Continue loop for another LLM call
+                continue
+            
+            # No tool call, this is the final response
+            final_response = assistant_content
+            break
+        
+        # Step 5: Update conversation history (RAM & Disk)
+        
+        # A. Update RAM (Active Context)
+        self.conversation_history.append({"role": "user", "content": user_message})
+        self.conversation_history.append({"role": "assistant", "content": final_response})
+        
+        # Trim RAM if too long (Sliding Window)
+        while len(self.conversation_history) > MAX_HISTORY_MESSAGES * 2:
+            self.conversation_history.pop(0)
+            
+        # B. Update Disk (Permanent Record)
+        # We append specifically the NEW messages to the file
+        self._append_to_history(user_message, final_response)
+        
+        # C. Update Vector DB (Long-term Recall)
+        self._archive_interaction(user_message, final_response)
+        
+        # D. Update Last Interaction Timestamp
+        from datetime import datetime
+        self.update_core_memory("conversation_context", "last_interaction", datetime.now().isoformat())
+        
+        # Step 6: Extract and update any user info mentioned
+        self._extract_user_info(user_message)
+        
+        result["answer"] = final_response
+        logger.info(f"📤 Response generated ({len(final_response)} chars)")
+        
+        return result
+    
+    def _extract_user_info(self, message: str) -> None:
+        """
+        Extract and update user information from messages.
+        
+        Simple pattern matching to identify:
+        - "My name is X"
+        - "I am X"
+        - "Call me X"
+        """
+        # Name patterns
+        name_patterns = [
+            r"my name is (\w+)",
+            r"i am (\w+)",
+            r"call me (\w+)",
+            r"i'm (\w+)",
+        ]
+        
+        for pattern in name_patterns:
+            match = re.search(pattern, message.lower())
+            if match:
+                name = match.group(1).capitalize()
+                # Don't update if it's a common word
+                if name.lower() not in {"a", "an", "the", "here", "there", "going", "doing", "looking"}:
+                    current_name = self.core_memory.get("user", {}).get("name", "Unknown")
+                    if current_name == "Unknown" or current_name != name:
+                        self.update_core_memory("user", "name", name)
+                        logger.info(f"📝 Updated user name: {name}")
+                    break
+    
+    def reset_conversation(self) -> None:
+        """Clear conversation history."""
+        self.conversation_history.clear()
+        logger.info("🔄 Conversation history cleared")
+    
+    def get_memory_stats(self) -> dict:
+        """Get statistics about the agent's memory."""
+        return {
+            "core_memory_file": str(self.memory_file),
+            "core_memory_exists": self.memory_file.exists(),
+            "chromadb_path": str(self.chroma_path),
+            "collection_name": COLLECTION_NAME,
+            "documents_count": self.collection.count(),
+            "conversation_history_length": len(self.conversation_history),
+            "active_modes": self.get_active_mode_names(),
+            "model": OLLAMA_MODEL,
+        }
+
+
+# -----------------------------------------------------------------------------
+# CLI Testing
+# -----------------------------------------------------------------------------
+
+
+def main():
+    """Simple CLI for testing the agent."""
+    print("=" * 60)
+    print("MEMORY AGENT - Interactive Test")
+    print("=" * 60)
+    print("Commands:")
+    print("  'quit'    - Exit")
+    print("  'reset'   - Clear conversation history")
+    print("  'stats'   - Show memory stats")
+    print("  'teacher' - Activate Teacher Mode")
+    print("  'coder'   - Activate Python Coding Guide")
+    print("  'default' - Clear all modes")
+    print("-" * 60)
+    
+    agent = MemoryAgent()
+    
+    while True:
+        try:
+            user_input = input("\nYou: ").strip()
+            
+            if not user_input:
+                continue
+            
+            if user_input.lower() == "quit":
+                print("Goodbye!")
+                break
+            
+            if user_input.lower() == "reset":
+                agent.reset_conversation()
+                print("Conversation reset.")
+                continue
+            
+            if user_input.lower() == "stats":
+                stats = agent.get_memory_stats()
+                print("\n📊 Memory Stats:")
+                for key, value in stats.items():
+                    print(f"  {key}: {value}")
+                continue
+            
+            if user_input.lower() == "teacher":
+                agent.activate_mode("Teacher Mode", """You are now a Socratic Tutor.
+BEHAVIOR:
+- Do NOT give direct answers
+- Ask guiding questions to help the user discover insights
+- Break complex concepts into smaller pieces
+- Validate understanding before moving forward
+- Use analogies and real-world examples
+- Encourage the user when they make progress""")
+                print("✅ Teacher Mode activated!")
+                continue
+            
+            if user_input.lower() == "coder":
+                agent.activate_mode("Python Coding Guide", """You are now a Python coding expert following PEP 8.
+CODING RULES:
+- Use snake_case for functions/variables, PascalCase for classes
+- Always include type annotations
+- Write docstrings for all functions
+- Maximum line length: 88 characters
+- Use f-strings over .format()
+- Use specific exceptions, not bare except""")
+                print("✅ Python Coding Guide activated!")
+                continue
+            
+            if user_input.lower() == "default":
+                agent.clear_all_modes()
+                print("✅ All modes cleared, back to default.")
+                continue
+            
+            response = agent.chat(user_input)
+            
+            if response["thoughts"]:
+                print("\n💭 Thoughts:")
+                for thought in response["thoughts"]:
+                    print(f"   {thought[:200]}...")
+            
+            if response["tool_calls"]:
+                print("\n🔧 Tools Used:")
+                for tc in response["tool_calls"]:
+                    print(f"   {tc['tool']}: {tc['args']}")
+            
+            if response["active_modes"]:
+                print(f"\n🎭 Active Modes: {', '.join(response['active_modes'])}")
+            
+            print(f"\nJarvis: {response['answer']}")
+            
+        except KeyboardInterrupt:
+            print("\n\nGoodbye!")
+            break
+        except Exception as e:
+            print(f"\n❌ Error: {e}")
+
+
+if __name__ == "__main__":
+    main()
