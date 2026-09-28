@@ -480,3 +480,60 @@ class MemoryAgent:
         except Exception as e:
             logger.error(f"Memory Write Error: {e}")
             return tool_output + f"\n[System: Memory Write Error - {str(e)}]"
+    def _build_system_prompt(self, rag_context: list[str]) -> str:
+        """
+        Build the complete system prompt with all context.
+        """
+        parts = []
+        
+        # 1. BASE PERSONA & CRITICAL RULES
+        parts.append("""You are Jarvis, an advanced AI assistant with infinite memory.
+
+CRITICAL MEMORY RULES:
+1. You have a long-term memory file. It is NOT automatic. You MUST write to it explicitly.
+2. IF the user shares a personal fact (name, job, location), use 'update_core_memory'.
+3. IF the user sets a preference ("I like python", "speak briefly"), use 'update_core_memory'.
+4. IF you learn a new trait about the user, SAVE IT immediately.
+5. Do not ask for permission to save. Just do it.
+
+RESPONSE FORMAT:
+- Start with <thinking> to plan your action.
+- If you need to save memory, output the JSON tool call ONLY.
+- If no tool is needed, reply normally.
+""")
+        
+        # 2. CORE MEMORY (Read-Only Context)
+        parts.append(self.get_core_memory_string())
+        
+        # 3. ACTIVE MODES
+        if self.active_modes:
+            parts.append("\n=== ACTIVE MODES (HIGH PRIORITY) ===")
+            for mode in self.active_modes:
+                parts.append(f"\n[{mode['name'].upper()}]")
+                parts.append(mode['instruction'])
+            parts.append("\n=== END ACTIVE MODES ===")
+        
+        # 4. ONE-SHOT EXAMPLES (To teach the model HOW to save)
+        parts.append("""
+=== EXAMPLES OF CORRECT BEHAVIOR ===
+User: "I am a vegan."
+Assistant: {"tool": "update_core_memory", "args": {"section": "user", "field": "preferences", "value": "Strict vegan (no meat/dairy)", "operation": "append"}}
+
+User: "My name is Sarah."
+Assistant: {"tool": "update_core_memory", "args": {"section": "user", "field": "name", "value": "Sarah", "operation": "replace"}}
+
+User: "Stop being so formal."
+Assistant: {"tool": "update_core_memory", "args": {"section": "user", "field": "preferences", "value": "Prefers casual/informal tone", "operation": "append"}}
+====================================
+""")
+
+        # 5. RAG CONTEXT
+        if rag_context:
+            parts.append("\n=== RELEVANT KNOWLEDGE ===")
+            for i, doc in enumerate(rag_context, 1):
+                parts.append(f"\n[Document {i}]\n{doc}")
+        
+        # 6. TOOL DEFINITIONS
+        parts.append("\n" + self.get_tools_description())
+        
+        return "\n\n".join(parts)
