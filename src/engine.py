@@ -263,3 +263,104 @@ class MemoryAgent:
         except Exception as e:
             logger.error(f"✗ Failed to initialize ChromaDB: {e}")
             raise
+    def _get_or_create_collection(self) -> chromadb.Collection:
+        """Get or create the document collection in ChromaDB."""
+        try:
+            collection = self.chroma_client.get_or_create_collection(
+                name=COLLECTION_NAME,
+                metadata={"description": "Personal knowledge base for infinite memory"}
+            )
+            count = collection.count()
+            logger.info(f"✓ Collection '{COLLECTION_NAME}' ready ({count} documents)")
+            return collection
+        except Exception as e:
+            logger.error(f"✗ Failed to get/create collection: {e}")
+            raise
+    def query_archival_memory(self, query: str, top_k: int = RAG_TOP_K) -> list[str]:
+        """
+        Query ChromaDB for relevant document chunks.
+        
+        Args:
+            query: The search query string.
+            top_k: Maximum number of results to return.
+        
+        Returns:
+            List of relevant document excerpts.
+        """
+        try:
+            # Check if collection is empty
+            if self.collection.count() == 0:
+                logger.debug("Archival memory is empty, skipping RAG")
+                return []
+            
+            # Query ChromaDB
+            results = self.collection.query(
+                query_texts=[query],
+                n_results=top_k,
+            )
+            
+            # Extract documents with metadata
+            documents = results.get("documents", [[]])[0]
+            distances = results.get("distances", [[]])[0]
+            metadatas = results.get("metadatas", [[]])[0]
+            
+            # Filter by similarity and format
+            relevant_docs = []
+            for doc, dist, meta in zip(documents, distances, metadatas):
+                # ChromaDB uses L2 distance; lower is more similar
+                # Convert to similarity score (approximate)
+                similarity = 1 / (1 + dist)
+                
+                if similarity >= RAG_MIN_SIMILARITY:
+                    source = meta.get("source", "Unknown")
+                    relevant_docs.append(f"[Source: {source}]\n{doc}")
+            
+            logger.debug(f"RAG: Found {len(relevant_docs)} relevant documents")
+            return relevant_docs
+            
+        except Exception as e:
+            logger.error(f"✗ RAG query failed: {e}")
+            return []
+    def _get_tools(self) -> dict:
+        """Lazy-load tools to avoid circular imports."""
+        if self._tools is None:
+            AVAILABLE_TOOLS = None
+            run_tool = None
+            
+            # Try multiple import paths for robustness
+            try:
+                from src.tools import AVAILABLE_TOOLS, run_tool
+                logger.debug("Imported tools from src.tools")
+            except ImportError:
+                try:
+                    from tools import AVAILABLE_TOOLS, run_tool
+                    logger.debug("Imported tools from tools")
+                except ImportError:
+                    logger.warning("Could not import tools module from any path")
+                    self._tools = {"registry": {}, "runner": lambda n, a: "Tool not found"}
+                    return self._tools
+
+            self._tools = {
+                "registry": AVAILABLE_TOOLS,
+                "runner": run_tool
+            }
+        return self._tools
+    def get_tools_description(self) -> str:
+        """Get a formatted description of available tools for the system prompt."""
+        tools = self._get_tools()["registry"]
+        
+        if not tools:
+            return "No tools available."
+        
+        lines = ["=== AVAILABLE TOOLS ==="]
+        for name, info in tools.items():
+            desc = info.get("description", "No description")
+            params = info.get("parameters", [])
+            params_str = ", ".join(params) if params else "none"
+            lines.append(f"\n• {name}({params_str})")
+            lines.append(f"  Description: {desc}")
+        
+        lines.append("\n\nTo use a tool, respond with ONLY a JSON object:")
+        lines.append('{"tool": "tool_name", "args": {"param1": "value1"}}')
+        
+        return "\n".join(lines)
