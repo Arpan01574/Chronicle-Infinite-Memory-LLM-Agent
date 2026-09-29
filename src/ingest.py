@@ -279,3 +279,89 @@ class DocumentIngester:
         except Exception as e:
             logger.error(f"✗ Failed to insert chunks: {e}")
             return 0
+    def ingest_file(self, file_path: Path) -> int:
+        """
+        Ingest a single file into ChromaDB.
+        
+        Args:
+            file_path: Path to the file to ingest.
+        
+        Returns:
+            Number of chunks inserted.
+        """
+        logger.info(f"  → Processing: {file_path.name}")
+        
+        # Read file content
+        content = self._read_file(file_path)
+        if not content:
+            return 0
+        
+        # Ingest with file metadata
+        metadata = {
+            "file_path": str(file_path.absolute()),
+            "file_type": file_path.suffix.lower(),
+        }
+        
+        return self.ingest_text(
+            content=content,
+            source=file_path.name,
+            metadata=metadata
+        )
+    def discover_files(self, data_dir: Path) -> list[Path]:
+        """
+        Scan directory for supported document files.
+        
+        Args:
+            data_dir: Directory to scan.
+        
+        Returns:
+            List of file paths to ingest.
+        """
+        if not data_dir.exists():
+            raise FileNotFoundError(
+                f"Data directory '{data_dir}' does not exist. "
+                "Please create it and add documents."
+            )
+        
+        if not data_dir.is_dir():
+            raise NotADirectoryError(f"'{data_dir}' is not a directory.")
+        
+        discovered_files = []
+        
+        logger.info(f"Scanning '{data_dir}' for documents...")
+        
+        for file_path in data_dir.rglob("*"):
+            # Skip directories
+            if file_path.is_dir():
+                continue
+            
+            # Skip files in excluded directories
+            if any(skip_dir in file_path.parts for skip_dir in SKIP_DIRECTORIES):
+                continue
+            
+            # Skip hidden files
+            if any(part.startswith(".") for part in file_path.parts):
+                continue
+            
+            # Check extension
+            if file_path.suffix.lower() in SUPPORTED_EXTENSIONS:
+                discovered_files.append(file_path)
+        
+        discovered_files.sort()
+        
+        logger.info(
+            f"✓ Discovered {len(discovered_files)} file(s) with extensions: "
+            f"{', '.join(SUPPORTED_EXTENSIONS)}"
+        )
+        
+        return discovered_files
+    def get_stats(self) -> dict:
+        """Get ingestion statistics."""
+        return {
+            "chroma_path": str(self.chroma_path),
+            "collection_name": COLLECTION_NAME,
+            "document_count": self.collection.count(),
+            "embedding_model": self.embedding_model_name,
+            "chunk_size": CHUNK_SIZE,
+            "chunk_overlap": CHUNK_OVERLAP,
+        }
