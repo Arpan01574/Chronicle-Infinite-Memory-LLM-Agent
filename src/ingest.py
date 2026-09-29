@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 """
 Data Ingestion Layer for Infinite Memory LLM Agent.
 
@@ -15,21 +16,41 @@ Usage:
     # Ingest a specific file
     python -m src.ingest path/to/file.pdf
 """
+
 import hashlib
 import logging
 import sys
 from pathlib import Path
 from typing import Optional
+
 import chromadb
 from sentence_transformers import SentenceTransformer
+
+# -----------------------------------------------------------------------------
+# Configuration
+# -----------------------------------------------------------------------------
+
+# ChromaDB Configuration
 CHROMA_DB_PATH: Path = Path("data/chromadb")
 COLLECTION_NAME: str = "personal_knowledge"
+
+# Embedding Model
 EMBEDDING_MODEL: str = "all-MiniLM-L6-v2"  # Fast and efficient
+
+# Chunking Configuration
 CHUNK_SIZE: int = 500  # Characters per chunk
 CHUNK_OVERLAP: int = 50  # Overlap between chunks for context continuity
+
+# Directory containing documents to ingest
 DATA_DIRECTORY: Path = Path("data")
+
+# Supported file extensions
 SUPPORTED_EXTENSIONS: set[str] = {".txt", ".md", ".pdf"}
+
+# Directories to skip during scanning
 SKIP_DIRECTORIES: set[str] = {"chromadb", "uploads", "__pycache__", ".git"}
+
+# Logging Setup
 logging.basicConfig(
     level=logging.INFO,
     format="%(asctime)s | %(levelname)-8s | %(message)s",
@@ -37,6 +58,13 @@ logging.basicConfig(
     handlers=[logging.StreamHandler(sys.stdout)],
 )
 logger = logging.getLogger(__name__)
+
+
+# -----------------------------------------------------------------------------
+# Core Functions
+# -----------------------------------------------------------------------------
+
+
 class DocumentIngester:
     """
     Handles document ingestion into ChromaDB.
@@ -47,6 +75,7 @@ class DocumentIngester:
     - Embedding via sentence-transformers
     - Deduplication using content hashing
     """
+    
     def __init__(
         self,
         chroma_path: Optional[Path] = None,
@@ -70,6 +99,7 @@ class DocumentIngester:
         logger.info(f"Loading embedding model: {self.embedding_model_name}...")
         self.embedding_model = SentenceTransformer(self.embedding_model_name)
         logger.info("✓ Embedding model loaded")
+    
     def _init_chromadb(self) -> chromadb.PersistentClient:
         """Initialize ChromaDB persistent client."""
         try:
@@ -80,6 +110,7 @@ class DocumentIngester:
         except Exception as e:
             logger.error(f"✗ Failed to initialize ChromaDB: {e}")
             raise
+    
     def _get_or_create_collection(self) -> chromadb.Collection:
         """Get or create the document collection."""
         try:
@@ -93,9 +124,11 @@ class DocumentIngester:
         except Exception as e:
             logger.error(f"✗ Failed to get/create collection: {e}")
             raise
+    
     def _generate_content_hash(self, content: str) -> str:
         """Generate a hash for content deduplication."""
         return hashlib.md5(content.encode("utf-8")).hexdigest()
+    
     def _chunk_text(self, text: str) -> list[str]:
         """
         Split text into overlapping chunks.
@@ -135,6 +168,7 @@ class DocumentIngester:
                 start = end
         
         return chunks
+    
     def _read_file(self, file_path: Path) -> Optional[str]:
         """
         Read content from a file.
@@ -164,6 +198,7 @@ class DocumentIngester:
         except Exception as e:
             logger.error(f"✗ Failed to read '{file_path.name}': {e}")
             return None
+    
     def _extract_pdf_text(self, file_path: Path) -> Optional[str]:
         """Extract text from a PDF file using pypdf."""
         try:
@@ -195,6 +230,7 @@ class DocumentIngester:
         except Exception as e:
             logger.error(f"✗ PDF extraction failed for '{file_path.name}': {e}")
             return None
+    
     def ingest_text(
         self,
         content: str,
@@ -279,6 +315,7 @@ class DocumentIngester:
         except Exception as e:
             logger.error(f"✗ Failed to insert chunks: {e}")
             return 0
+    
     def ingest_file(self, file_path: Path) -> int:
         """
         Ingest a single file into ChromaDB.
@@ -307,6 +344,7 @@ class DocumentIngester:
             source=file_path.name,
             metadata=metadata
         )
+    
     def discover_files(self, data_dir: Path) -> list[Path]:
         """
         Scan directory for supported document files.
@@ -355,6 +393,7 @@ class DocumentIngester:
         )
         
         return discovered_files
+    
     def get_stats(self) -> dict:
         """Get ingestion statistics."""
         return {
@@ -365,3 +404,140 @@ class DocumentIngester:
             "chunk_size": CHUNK_SIZE,
             "chunk_overlap": CHUNK_OVERLAP,
         }
+
+
+def run_ingestion(data_dir: Optional[Path] = None, single_file: Optional[Path] = None) -> dict:
+    """
+    Execute the complete ingestion pipeline.
+    
+    Args:
+        data_dir: Directory to scan for files.
+        single_file: Single file to ingest (overrides data_dir scan).
+    
+    Returns:
+        Statistics dictionary.
+    """
+    logger.info("=" * 60)
+    logger.info("DOCUMENT INGESTION - Starting")
+    logger.info("=" * 60)
+    
+    stats = {"total": 0, "success": 0, "failed": 0, "chunks_added": 0}
+    
+    # Initialize ingester
+    ingester = DocumentIngester()
+    
+    # Determine files to process
+    if single_file:
+        if not single_file.exists():
+            raise FileNotFoundError(f"File '{single_file}' does not exist.")
+        files = [single_file]
+    else:
+        files = ingester.discover_files(data_dir or DATA_DIRECTORY)
+    
+    if not files:
+        logger.warning("No files found to ingest. Add documents to the 'data/' directory.")
+        return stats
+    
+    stats["total"] = len(files)
+    
+    # Process files
+    logger.info("-" * 60)
+    logger.info("Beginning file ingestion...")
+    logger.info("-" * 60)
+    
+    for file_path in files:
+        try:
+            chunks_added = ingester.ingest_file(file_path)
+            if chunks_added >= 0:
+                stats["success"] += 1
+                stats["chunks_added"] += chunks_added
+            else:
+                stats["failed"] += 1
+        except Exception as e:
+            logger.error(f"✗ Failed to ingest '{file_path.name}': {e}")
+            stats["failed"] += 1
+    
+    # Summary
+    logger.info("=" * 60)
+    logger.info("INGESTION COMPLETE")
+    logger.info(f"  Total files:    {stats['total']}")
+    logger.info(f"  Successful:     {stats['success']}")
+    logger.info(f"  Failed:         {stats['failed']}")
+    logger.info(f"  Chunks added:   {stats['chunks_added']}")
+    logger.info(f"  Total in DB:    {ingester.collection.count()}")
+    logger.info("=" * 60)
+    
+    return stats
+
+
+# -----------------------------------------------------------------------------
+# Convenience Functions for External Use
+# -----------------------------------------------------------------------------
+
+
+def ingest_file(file_path: Path) -> int:
+    """
+    Convenience function to ingest a single file.
+    
+    Args:
+        file_path: Path to the file to ingest.
+    
+    Returns:
+        Number of chunks added.
+    """
+    ingester = DocumentIngester()
+    return ingester.ingest_file(file_path)
+
+
+def ingest_text(content: str, source: str = "direct_input") -> int:
+    """
+    Convenience function to ingest raw text.
+    
+    Args:
+        content: Text content to ingest.
+        source: Source identifier.
+    
+    Returns:
+        Number of chunks added.
+    """
+    ingester = DocumentIngester()
+    return ingester.ingest_text(content, source)
+
+
+# -----------------------------------------------------------------------------
+# Entry Point
+# -----------------------------------------------------------------------------
+
+
+def main() -> int:
+    """Main entry point with argument handling."""
+    try:
+        # Check for single file argument
+        single_file = None
+        if len(sys.argv) > 1:
+            single_file = Path(sys.argv[1])
+        
+        stats = run_ingestion(single_file=single_file)
+        
+        if stats["total"] == 0:
+            return 0
+        elif stats["failed"] == 0:
+            return 0
+        elif stats["success"] > 0:
+            return 1
+        else:
+            return 2
+            
+    except FileNotFoundError as e:
+        logger.critical(str(e))
+        return 2
+    except KeyboardInterrupt:
+        logger.info("\nIngestion cancelled by user.")
+        return 130
+    except Exception as e:
+        logger.exception(f"Unexpected error during ingestion: {e}")
+        return 2
+
+
+if __name__ == "__main__":
+    sys.exit(main())
