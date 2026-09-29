@@ -164,3 +164,118 @@ class DocumentIngester:
         except Exception as e:
             logger.error(f"✗ Failed to read '{file_path.name}': {e}")
             return None
+    def _extract_pdf_text(self, file_path: Path) -> Optional[str]:
+        """Extract text from a PDF file using pypdf."""
+        try:
+            from pypdf import PdfReader
+        except ImportError:
+            logger.warning(
+                f"✗ Cannot read PDF '{file_path.name}': pypdf not installed. "
+                "Install with: pip install pypdf"
+            )
+            return None
+        
+        try:
+            reader = PdfReader(file_path)
+            text_parts = []
+            
+            for page_num, page in enumerate(reader.pages, start=1):
+                page_text = page.extract_text()
+                if page_text:
+                    text_parts.append(page_text)
+                else:
+                    logger.debug(f"Page {page_num} of '{file_path.name}' yielded no text")
+            
+            if not text_parts:
+                logger.warning(f"✗ No extractable text found in '{file_path.name}'")
+                return None
+            
+            return "\n\n".join(text_parts)
+            
+        except Exception as e:
+            logger.error(f"✗ PDF extraction failed for '{file_path.name}': {e}")
+            return None
+    def ingest_text(
+        self,
+        content: str,
+        source: str,
+        metadata: Optional[dict] = None
+    ) -> int:
+        """
+        Ingest raw text content into ChromaDB.
+        
+        Args:
+            content: Text content to ingest.
+            source: Source identifier (e.g., filename).
+            metadata: Additional metadata to store.
+        
+        Returns:
+            Number of chunks inserted.
+        """
+        if not content or not content.strip():
+            logger.warning("Empty content, skipping")
+            return 0
+        
+        # Chunk the content
+        chunks = self._chunk_text(content)
+        
+        if not chunks:
+            logger.warning("No chunks generated, skipping")
+            return 0
+        
+        # Prepare data for ChromaDB
+        ids = []
+        documents = []
+        metadatas = []
+        embeddings = []
+        
+        for i, chunk in enumerate(chunks):
+            # Generate unique ID from content hash
+            chunk_hash = self._generate_content_hash(chunk)
+            doc_id = f"{source}_{chunk_hash[:8]}_{i}"
+            
+            # Check if already exists (deduplication)
+            try:
+                existing = self.collection.get(ids=[doc_id])
+                if existing and existing["ids"]:
+                    logger.debug(f"Chunk {i} already exists, skipping")
+                    continue
+            except Exception:
+                pass  # ID doesn't exist, proceed
+            
+            # Generate embedding
+            embedding = self.embedding_model.encode(chunk).tolist()
+            
+            # Prepare metadata
+            chunk_metadata = {
+                "source": source,
+                "chunk_index": i,
+                "total_chunks": len(chunks),
+                "content_hash": chunk_hash,
+            }
+            if metadata:
+                chunk_metadata.update(metadata)
+            
+            ids.append(doc_id)
+            documents.append(chunk)
+            metadatas.append(chunk_metadata)
+            embeddings.append(embedding)
+        
+        if not ids:
+            logger.info(f"All chunks from '{source}' already exist, skipping")
+            return 0
+        
+        # Insert into ChromaDB
+        try:
+            self.collection.add(
+                ids=ids,
+                documents=documents,
+                metadatas=metadatas,
+                embeddings=embeddings,
+            )
+            logger.info(f"✓ Inserted {len(ids)} chunks from '{source}'")
+            return len(ids)
+            
+        except Exception as e:
+            logger.error(f"✗ Failed to insert chunks: {e}")
+            return 0
