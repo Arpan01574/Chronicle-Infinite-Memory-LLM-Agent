@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 """
 Chainlit Web Interface for Infinite Memory LLM Agent.
 
@@ -15,24 +16,50 @@ Usage:
 import sys
 import os
 from pathlib import Path
+
+# =============================================================================
+# CRITICAL: Fix imports BEFORE anything else
+# This ensures 'engine', 'tools', and 'ingest' can always be found
+# regardless of how the script is invoked.
+# =============================================================================
 _src_dir = Path(__file__).parent.absolute()
 _project_root = _src_dir.parent
+
 if str(_src_dir) not in sys.path:
     sys.path.insert(0, str(_src_dir))
 if str(_project_root) not in sys.path:
     sys.path.insert(0, str(_project_root))
+
+# =============================================================================
+# Now safe to import everything else
+# =============================================================================
 import shutil
 from datetime import datetime
 from typing import Optional
+
 import chainlit as cl
 from chainlit.data.sql_alchemy import SQLAlchemyDataLayer
 from chainlit.input_widget import Select
+
+# Import from our modules (now works thanks to path fix)
 from engine import MemoryAgent
 from ingest import ingest_file
 from tools import fetch_coding_guidelines
+
+# -----------------------------------------------------------------------------
+# Configuration
+# -----------------------------------------------------------------------------
+
+# File upload directory
 UPLOADS_DIR: Path = Path("data/uploads")
+
+# Database path for chat persistence
 DATABASE_PATH: Path = Path("data/chainlit.db")
+
+# Supported file types for upload
 SUPPORTED_UPLOAD_TYPES = {".pdf", ".txt", ".md"}
+
+# Mode prompts - these get injected into the agent's system prompt
 MODE_PROMPTS = {
     "General Assistant": None,  # No special mode
 
@@ -75,6 +102,14 @@ REVIEW RULES: • Look for bugs, security issues, and performance problems
 • Check for proper error handling 
 • Evaluate code readability and maintainability 
 • Suggest concrete improvements with examples""", }
+
+
+# -----------------------------------------------------------------------------
+# Data Layer Configuration (Chat Persistence)
+# -----------------------------------------------------------------------------
+
+
+@cl.data_layer
 def get_data_layer():
     """
     Configure SQLAlchemy Data Layer for chat persistence.
@@ -94,6 +129,14 @@ def get_data_layer():
     return SQLAlchemyDataLayer(
         conninfo=f"sqlite+aiosqlite:///{db_path}"
     )
+
+
+# -----------------------------------------------------------------------------
+# Author Rename - Gives the assistant a personality
+# -----------------------------------------------------------------------------
+
+
+@cl.author_rename
 def rename_author(orig_author: str) -> str:
     """Rename the default author names for a more personalized experience."""
     rename_map = {
@@ -102,6 +145,13 @@ def rename_author(orig_author: str) -> str:
         "Chatbot": "Jarvis",
     }
     return rename_map.get(orig_author, orig_author)
+
+
+# -----------------------------------------------------------------------------
+# Chat Settings - Mode Selection (Replaces Toolbox)
+# -----------------------------------------------------------------------------
+
+
 '''@cl.set_chat_settings
 async def set_chat_settings():
     """
@@ -120,6 +170,8 @@ async def set_chat_settings():
         ),
     ]
 '''
+
+@cl.on_settings_update
 async def on_settings_update(settings: dict):
     """
     Handle mode changes from the settings panel.
@@ -155,6 +207,14 @@ async def on_settings_update(settings: dict):
             content="✅ Returned to **General Assistant** mode.",
             author="Jarvis"
         ).send()
+
+
+# -----------------------------------------------------------------------------
+# Chat Starters - Gemini-style quick action buttons
+# -----------------------------------------------------------------------------
+
+
+@cl.set_starters
 async def set_starters():
     """
     Define starter buttons displayed on a fresh chat screen.
@@ -182,6 +242,13 @@ async def set_starters():
             icon="/public/code.svg",
         ),
     ]
+
+
+# -----------------------------------------------------------------------------
+# Helper Functions
+# -----------------------------------------------------------------------------
+
+
 def extract_file_content(file_path: Path) -> Optional[str]:
     """
     Extract text content from an uploaded file for display/preview.
@@ -219,6 +286,8 @@ def extract_file_content(file_path: Path) -> Optional[str]:
 
     except Exception as e:
         return f"[Error reading file {file_path.name}: {str(e)}]"
+
+
 async def save_uploaded_file(element) -> Optional[Path]:
     """
     Save an uploaded file to the uploads directory.
@@ -247,6 +316,14 @@ async def save_uploaded_file(element) -> Optional[Path]:
     except Exception as e:
         print(f"Error saving uploaded file: {e}")
         return None
+
+
+# -----------------------------------------------------------------------------
+# Chat Lifecycle Hooks
+# -----------------------------------------------------------------------------
+
+
+@cl.on_chat_start
 async def on_chat_start():
     """
     Initialize the chat session.
@@ -321,6 +398,9 @@ async def on_chat_start():
             ),
             author="System"
         ).send()
+
+
+@cl.on_chat_resume
 async def on_chat_resume(thread):
     """
     Resume a previous chat session.
@@ -346,6 +426,9 @@ async def on_chat_resume(thread):
             content=f"⚠️ Could not fully restore session: {str(e)}",
             author="System"
         ).send()
+
+
+@cl.on_message
 async def on_message(message: cl.Message):
     """
     Handle incoming user messages.
@@ -485,14 +568,26 @@ async def on_message(message: cl.Message):
             ),
             author="System"
         ).send()
+
+
+@cl.on_chat_end
 async def on_chat_end():
     """Called when the chat session ends. Cleanup any resources if needed."""
     print("Chat session ended")
+
+
+@cl.on_stop
 async def on_stop():
     """Called when the user stops a running response."""
     agent: Optional[MemoryAgent] = cl.user_session.get("agent")
     if agent:
         print("User stopped the response")
+
+
+# -----------------------------------------------------------------------------
+# Entry Point
+# -----------------------------------------------------------------------------
+
 if __name__ == "__main__":
     print("Run this application with: chainlit run src/app.py -w")
     print("The -w flag enables hot reloading during development.")
