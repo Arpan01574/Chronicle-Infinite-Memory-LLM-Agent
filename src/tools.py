@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 """
 Custom Tools for Infinite Memory LLM Agent.
 
@@ -20,14 +21,29 @@ Usage:
     result = run_tool("perform_web_search", {"query": "latest AI news"})
     print(result)
 """
+
 import os
 from datetime import datetime
 from pathlib import Path
 from typing import Any, Optional
+
 from duckduckgo_search import DDGS
 from fpdf import FPDF
 from simpleeval import simple_eval
+
+# -----------------------------------------------------------------------------
+# Configuration
+# -----------------------------------------------------------------------------
+
+# Directory for user-generated files (PDFs, exports, etc.)
 USER_DOWNLOADS_DIR: Path = Path("user_downloads")
+
+
+# -----------------------------------------------------------------------------
+# Tool Implementations
+# -----------------------------------------------------------------------------
+
+
 def perform_web_search(query: str = "", **kwargs) -> str:
     """
     Searches the internet for real-time information, news, or facts.
@@ -81,6 +97,8 @@ def perform_web_search(query: str = "", **kwargs) -> str:
 
     except Exception as e:
         return f"Error: Web search failed - {str(e)}"
+
+
 def get_current_datetime(**kwargs) -> str:
     """
     Returns the current date and time.
@@ -108,6 +126,8 @@ def get_current_datetime(**kwargs) -> str:
 
     except Exception as e:
         return f"Error: Could not retrieve current time - {str(e)}"
+
+
 def save_summary_to_pdf(filename: str = "", content: str = "", **kwargs) -> str:
     """
     Saves text content to a PDF file on the user's disk.
@@ -189,6 +209,8 @@ def save_summary_to_pdf(filename: str = "", content: str = "", **kwargs) -> str:
 
     except Exception as e:
         return f"Error: Failed to save PDF - {str(e)}"
+
+
 def fetch_coding_guidelines(language: str = "", **kwargs) -> str:
     """
     Retrieves style guides and best practices for a programming language.
@@ -320,6 +342,8 @@ def fetch_coding_guidelines(language: str = "", **kwargs) -> str:
 
     except Exception as e:
         return f"Error: Could not fetch coding guidelines - {str(e)}"
+
+
 def activate_teacher_mode(topic: str = "", **kwargs) -> str:
     """
     Activates 'Teacher Mode' for guided, Socratic-style learning.
@@ -362,6 +386,8 @@ def activate_teacher_mode(topic: str = "", **kwargs) -> str:
 
     except Exception as e:
         return f"Error: Could not activate teacher mode - {str(e)}"
+
+
 def evaluate_math_expression(expression: str = "", **kwargs) -> str:
     """
     Safely evaluates a mathematical expression and returns the result.
@@ -394,6 +420,8 @@ def evaluate_math_expression(expression: str = "", **kwargs) -> str:
 
     except Exception as e:
         return f"Error: Could not evaluate expression - {str(e)}"
+
+
 def update_core_memory(section: str = "", field: str = "", value: str = "", operation: str = "replace", **kwargs) -> str:
     """
     Updates the core memory (User, Persona, or Context).
@@ -452,6 +480,8 @@ def update_core_memory(section: str = "", field: str = "", value: str = "", oper
         
     except Exception as e:
         return f"Error: Could not update memory - {str(e)}"
+
+
 def search_knowledge_base(query: str = "", agent: Optional[Any] = None, **kwargs) -> str:
     """
     Searches the archival memory / knowledge base for relevant information.
@@ -505,3 +535,133 @@ def search_knowledge_base(query: str = "", agent: Optional[Any] = None, **kwargs
         
     except Exception as e:
         return f"Error: Knowledge base search failed - {str(e)}"
+
+
+# -----------------------------------------------------------------------------
+# Tool Registry and Dispatcher
+# -----------------------------------------------------------------------------
+
+
+# Registry of all available tools with metadata
+AVAILABLE_TOOLS: dict[str, dict[str, Any]] = {
+    "perform_web_search": {
+        "function": perform_web_search,
+        "description": "Search the internet for real-time information, news, or facts",
+        "parameters": ["query"],
+    },
+    "get_current_datetime": {
+        "function": get_current_datetime,
+        "description": "Get the current date and time",
+        "parameters": [],
+    },
+    "save_summary_to_pdf": {
+        "function": save_summary_to_pdf,
+        "description": "Save text content to a PDF file",
+        "parameters": ["filename", "content"],
+    },
+    "fetch_coding_guidelines": {
+        "function": fetch_coding_guidelines,
+        "description": "Get coding style guidelines for a programming language",
+        "parameters": ["language"],
+    },
+    "activate_teacher_mode": {
+        "function": activate_teacher_mode,
+        "description": "Activate Socratic teaching mode for guided learning",
+        "parameters": ["topic"],
+    },
+    "evaluate_math_expression": {
+        "function": evaluate_math_expression,
+        "description": "Safely evaluate a mathematical expression",
+        "parameters": ["expression"],
+    },
+    "update_core_memory": {
+        "function": update_core_memory,
+        "description": "Update core memory sections (User, Persona, Context)",
+        "parameters": ["section", "field", "value", "operation"],
+    },
+    "search_knowledge_base": {
+        "function": search_knowledge_base,
+        "description": "Search the knowledge base for relevant documents",
+        "parameters": ["query"],
+    },
+}
+
+
+def run_tool(tool_name: str, args: dict[str, Any]) -> str:
+    """
+    Execute a tool by name with the given arguments.
+
+    Args:
+        tool_name: Name of the tool to execute.
+        args: Dictionary of arguments to pass to the tool.
+
+    Returns:
+        String result from the tool execution.
+    """
+    if tool_name not in AVAILABLE_TOOLS:
+        available = ", ".join(AVAILABLE_TOOLS.keys())
+        return f"Error: Unknown tool '{tool_name}'. Available tools: {available}"
+
+    tool_info = AVAILABLE_TOOLS[tool_name]
+    tool_func = tool_info["function"]
+
+    try:
+        # Call the tool with the provided arguments
+        result = tool_func(**args)
+        return str(result)
+    except TypeError as e:
+        # Handle missing required arguments
+        return f"Error: Invalid arguments for '{tool_name}' - {str(e)}"
+    except Exception as e:
+        return f"Error: Tool '{tool_name}' failed - {str(e)}"
+
+
+def list_tools() -> str:
+    """List all available tools with their descriptions."""
+    lines = ["Available Tools:"]
+    for name, info in AVAILABLE_TOOLS.items():
+        params = ", ".join(info["parameters"]) if info["parameters"] else "none"
+        lines.append(f"\n• {name}({params})")
+        lines.append(f"  {info['description']}")
+    return "\n".join(lines)
+
+
+# -----------------------------------------------------------------------------
+# CLI Testing
+# -----------------------------------------------------------------------------
+
+
+if __name__ == "__main__":
+    print("=" * 60)
+    print("TOOL TESTING")
+    print("=" * 60)
+    print(list_tools())
+    
+    print("\n" + "-" * 60)
+    print("Testing tools...")
+    print("-" * 60)
+    
+    # Test get_current_datetime
+    print("\n1. get_current_datetime:")
+    print(run_tool("get_current_datetime", {}))
+    
+    # Test evaluate_math_expression
+    print("\n2. evaluate_math_expression:")
+    print(run_tool("evaluate_math_expression", {"expression": "2 + 2 * 3"}))
+    
+    # Test fetch_coding_guidelines
+    print("\n3. fetch_coding_guidelines:")
+    print(run_tool("fetch_coding_guidelines", {"language": "python"}))
+    
+    print("\n" + "=" * 60)
+    print("Testing complete!")
+    print("=" * 60)
+
+    # Test update_core_memory (New Tool)
+    print("\n4. update_core_memory:")
+    print(run_tool("update_core_memory", {
+        "section": "persona",
+        "field": "traits",
+        "value": "patient",
+        "operation": "append"
+    }))
