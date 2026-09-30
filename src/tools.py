@@ -362,3 +362,146 @@ def activate_teacher_mode(topic: str = "", **kwargs) -> str:
 
     except Exception as e:
         return f"Error: Could not activate teacher mode - {str(e)}"
+def evaluate_math_expression(expression: str = "", **kwargs) -> str:
+    """
+    Safely evaluates a mathematical expression and returns the result.
+
+    Use this tool when the user needs:
+    - Basic arithmetic calculations
+    - Mathematical computations
+    - Number conversions or calculations
+
+    Supports: +, -, *, /, **, %, parentheses.
+
+    Args:
+        expression: A mathematical expression string (e.g., "2 + 2 * 3").
+
+    Returns:
+        The computed result as a string, or an error message.
+    """
+    # Handle dict args
+    if isinstance(expression, dict):
+        expression = expression.get("expression", "") or expression.get("input", "")
+    
+    try:
+        if not expression or not str(expression).strip():
+            return "Error: Expression cannot be empty."
+
+        expression = str(expression).strip()
+        result = simple_eval(expression)
+
+        return f"Result: {expression} = {result}"
+
+    except Exception as e:
+        return f"Error: Could not evaluate expression - {str(e)}"
+def update_core_memory(section: str = "", field: str = "", value: str = "", operation: str = "replace", **kwargs) -> str:
+    """
+    Updates the core memory (User, Persona, or Context).
+
+    Use this tool when you need to:
+    - Update user details (name, preferences)
+    - Modify persona traits
+    - Update conversation context
+
+    Args:
+        section: The memory section ('user', 'persona', 'conversation_context').
+        field: The specific field to update.
+        value: The value to set.
+        operation: 'replace' (default) or 'append' (for lists).
+
+    Returns:
+        Confirmation string for the memory engine.
+    """
+    # Handle dict args (in case agent passes a single dictionary object)
+    if isinstance(section, dict):
+        kwargs = section
+        section = kwargs.get("section", "")
+        field = kwargs.get("field", "")
+        value = kwargs.get("value", "")
+        operation = kwargs.get("operation", "replace")
+    
+    try:
+        # Validate inputs
+        if not section or not str(section).strip():
+            return "Error: Section cannot be empty. Use 'user', 'persona', or 'conversation_context'."
+        
+        if not field or not str(field).strip():
+            return "Error: Field cannot be empty."
+        
+        if not value or not str(value).strip():
+            return "Error: Value cannot be empty."
+        
+        section = str(section).strip().lower()
+        field = str(field).strip().lower()
+        value = str(value).strip()
+        operation = str(operation).strip().lower()
+
+        valid_sections = ["user", "persona", "conversation_context"]
+        if section not in valid_sections:
+            return f"Error: Invalid section '{section}'. Must be one of {valid_sections}."
+        
+        # Return instructions for the Engine
+        return (
+            f"MEMORY_UPDATE_REQUEST:\n"
+            f"  Section: {section}\n"
+            f"  Field: {field}\n"
+            f"  Value: {value}\n"
+            f"  Operation: {operation}\n\n"
+            f"System Notification: Requesting update to {section}.{field}..."
+        )
+        
+    except Exception as e:
+        return f"Error: Could not update memory - {str(e)}"
+def search_knowledge_base(query: str = "", agent: Optional[Any] = None, **kwargs) -> str:
+    """
+    Searches the archival memory / knowledge base for relevant information.
+
+    Use this tool when:
+    - The user asks about something that might be in their documents
+    - You need to recall previously stored information
+    - Looking up facts from uploaded files
+
+    Args:
+        query: The search query.
+        agent: Optional MemoryAgent instance to use for the search.
+               If not provided, creates a new one (expensive, avoid if possible).
+
+    Returns:
+        Search results from the knowledge base.
+    """
+    # Handle dict args
+    if isinstance(query, dict):
+        query = query.get("query", "") or query.get("input", "")
+    
+    try:
+        if not query or not str(query).strip():
+            return "Error: Search query cannot be empty."
+        
+        query = str(query).strip()
+        
+        # Use provided agent or create new one
+        if agent is None:
+            # Import here to avoid circular dependency at module level
+            try:
+                from engine import MemoryAgent
+            except ImportError:
+                try:
+                    from src.engine import MemoryAgent
+                except ImportError:
+                    return "Error: Could not import MemoryAgent. Check your installation."
+            
+            agent = MemoryAgent()
+        
+        results = agent.query_archival_memory(query, top_k=5)
+        
+        if not results:
+            return f"No relevant documents found for: '{query}'"
+        
+        formatted = [f"Knowledge Base Search Results for '{query}':\n"]
+        for i, doc in enumerate(results, 1):
+            formatted.append(f"\n--- Result {i} ---\n{doc}")
+        
+        return "\n".join(formatted)
+        
+    except Exception as e:
+        return f"Error: Knowledge base search failed - {str(e)}"
