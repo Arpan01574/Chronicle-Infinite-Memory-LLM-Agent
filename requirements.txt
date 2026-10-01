@@ -14,3 +14,4 @@ simpleeval>=1.0.0         # Safe math expression evaluation
 # Web interface (for app.py)
 chainlit>=1.0.0           # Chat UI framework
 aiosqlite>=0.19.0         # Async SQLite for Chainlit persistence
+sqlalchemy[asyncio]>=2.0.0  # ORM for Chainlit data layer (asyncio extra for greenlet)
