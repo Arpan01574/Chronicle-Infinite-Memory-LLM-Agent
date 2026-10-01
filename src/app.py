@@ -23,7 +23,10 @@ from pathlib import Path
 # regardless of how the script is invoked.
 # =============================================================================
 _src_dir = Path(__file__).parent.absolute()
-_venv_chainlit = os.path.join(_src_dir.parent, ".venv", "Scripts", "chainlit.exe")
+_project_root = _src_dir.parent
+os.chdir(_project_root)
+
+_venv_chainlit = os.path.join(_project_root, ".venv", "Scripts", "chainlit.exe")
 if os.path.exists(_venv_chainlit) and "chainlit" not in os.path.basename(sys.argv[0]).lower():
     import socket
     import subprocess
@@ -41,8 +44,7 @@ if os.path.exists(_venv_chainlit) and "chainlit" not in os.path.basename(sys.arg
         webbrowser.open(f"http://localhost:{target_port}")
         sys.exit(0)
 
-    sys.exit(subprocess.call([_venv_chainlit, "run", str(Path(__file__).absolute()), "--port", str(target_port)] + sys.argv[1:]))
-_project_root = _src_dir.parent
+    sys.exit(subprocess.call([_venv_chainlit, "run", str(Path(__file__).absolute()), "--port", str(target_port)] + sys.argv[1:], cwd=str(_project_root)))
 
 if str(_src_dir) not in sys.path:
     sys.path.insert(0, str(_src_dir))
