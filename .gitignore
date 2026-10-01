@@ -13,6 +13,7 @@ env/
 # --- OS Junk Files ---
 .DS_Store
 Thumbs.db
+*.bat
 
 # --- IDE Settings (VS Code, Pycharm) ---
 .vscode/
