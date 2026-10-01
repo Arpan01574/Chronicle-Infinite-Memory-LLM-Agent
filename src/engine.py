@@ -78,7 +78,12 @@ RAG_MIN_SIMILARITY: float = 0.3  # Minimum similarity threshold
 # Context Window Management
 MAX_HISTORY_MESSAGES: int = 10  # Keep last N messages in context
 
-# Logging Setup
+# Logging Setup — reconfigure stdout for UTF-8 on Windows to avoid
+# UnicodeEncodeError with emoji/checkmark characters in log messages.
+import io
+if hasattr(sys.stdout, "reconfigure"):
+    sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+
 logging.basicConfig(
     level=logging.INFO,
     format="%(asctime)s | %(levelname)-8s | %(name)s | %(message)s",
