@@ -151,6 +151,7 @@ OLLAMA_MODEL: str = "hermes3:8b"  # Change to your preferred model
 
 ### Start the Chat Interface
 
+Click the ▶️ **Play** button on `src/app.py` in VS Code, or run via terminal:
 ```bash
 chainlit run src/app.py -w
 ```
