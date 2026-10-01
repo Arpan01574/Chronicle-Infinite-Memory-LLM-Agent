@@ -23,6 +23,25 @@ from pathlib import Path
 # regardless of how the script is invoked.
 # =============================================================================
 _src_dir = Path(__file__).parent.absolute()
+_venv_chainlit = os.path.join(_src_dir.parent, ".venv", "Scripts", "chainlit.exe")
+if os.path.exists(_venv_chainlit) and "chainlit" not in os.path.basename(sys.argv[0]).lower():
+    import socket
+    import subprocess
+    import webbrowser
+
+    def _is_port_in_use(port):
+        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+            s.settimeout(0.5)
+            return s.connect_ex(('127.0.0.1', port)) == 0
+
+    target_port = 8000
+    if _is_port_in_use(target_port):
+        print(f"\n[OK] Chronicle app is ALREADY running on http://localhost:{target_port}!")
+        print(f"[OK] Opening http://localhost:{target_port} in your browser...\n")
+        webbrowser.open(f"http://localhost:{target_port}")
+        sys.exit(0)
+
+    sys.exit(subprocess.call([_venv_chainlit, "run", str(Path(__file__).absolute()), "--port", str(target_port)] + sys.argv[1:]))
 _project_root = _src_dir.parent
 
 if str(_src_dir) not in sys.path:
