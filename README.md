@@ -301,4 +301,3 @@ This project is open source under the MIT License.
   <strong>Built with ❤️ for privacy-conscious AI enthusiasts</strong><br/>
   <em>Your data never leaves your machine.</em>
 </p>
-.
