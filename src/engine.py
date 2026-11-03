@@ -143,6 +143,16 @@ class MemoryAgent:
         
         logger.info(f"✓ MemoryAgent initialized with model: {OLLAMA_MODEL}")
     
+    def close(self) -> None:
+        """Clean up resources, closing ChromaDB persistent client connection."""
+        if hasattr(self, 'chroma_client') and self.chroma_client is not None:
+            try:
+                if hasattr(self.chroma_client, '_system'):
+                    self.chroma_client._system.stop()
+            except Exception:
+                pass
+            self.chroma_client = None
+    
     # -------------------------------------------------------------------------
     # Active Mode Management (NEW)
     # -------------------------------------------------------------------------
@@ -242,12 +252,23 @@ class MemoryAgent:
             "=== CORE MEMORY ===",
             f"User Name: {user.get('name', 'Unknown')}",
             f"User Notes: {user.get('notes', 'None')}",
-            f"User Preferences: {', '.join(user.get('preferences', [])) or 'None'}",
+            f"User Preferences: {', '.join(user.get('preferences', [])) if isinstance(user.get('preferences'), list) else user.get('preferences', 'None')}",
+        ]
+        # Include dynamic user fields (e.g., cloud_budget, preferred_db)
+        for k, v in user.items():
+            if k not in ("name", "notes", "preferences"):
+                lines.append(f"User {k.replace('_', ' ').title()}: {v}")
+
+        lines.extend([
             "",
             f"My Name: {persona.get('name', 'Jarvis')}",
             f"My Role: {persona.get('role', 'AI Assistant')}",
-            f"My Traits: {', '.join(persona.get('traits', []))}",
-        ]
+            f"My Traits: {', '.join(persona.get('traits', [])) if isinstance(persona.get('traits'), list) else persona.get('traits', 'None')}",
+        ])
+        for k, v in persona.items():
+            if k not in ("name", "role", "traits"):
+                lines.append(f"Persona {k.replace('_', ' ').title()}: {v}")
+
         return "\n".join(lines)
     
     def _load_history(self) -> list[dict]:
@@ -433,42 +454,51 @@ class MemoryAgent:
     
     def _parse_tool_call(self, response: str) -> Optional[dict]:
         """
-        Parse a tool call from the LLM response.
-        Handles nested JSON objects by balancing brackets.
+        Parse a tool call from the LLM response with resilient bracket balancing.
+        Handles conversational preamble, markdown code blocks, nested dictionaries,
+        distractors with braces, and escaped quotes.
         """
         try:
-            # 1. Quick check: does it contain the tool trigger?
-            if '"tool":' not in response:
+            if '"tool":' not in response and "'tool':" not in response:
                 return None
             
-            # 2. Find the start of the JSON object
-            start_idx = response.find('{')
-            if start_idx == -1:
-                return None
+            # Scan for candidate opening braces
+            for start_idx in range(len(response)):
+                if response[start_idx] != '{':
+                    continue
                 
-            # 3. Stack-based extraction to handle nested brackets (args: { ... })
-            balance = 0
-            for i in range(start_idx, len(response)):
-                char = response[i]
-                if char == '{':
-                    balance += 1
-                elif char == '}':
-                    balance -= 1
+                balance = 0
+                in_string = False
+                escape = False
+                
+                for i in range(start_idx, len(response)):
+                    char = response[i]
                     
-                # If balance returns to 0, we found the closing brace of the main object
-                if balance == 0:
-                    json_str = response[start_idx : i+1]
-                    try:
-                        # Attempt to parse
-                        parsed = json.loads(json_str)
-                        if "tool" in parsed:
-                            return parsed
-                    except json.JSONDecodeError:
-                        # If this chunk failed, keep looking (e.g. if we found a nested { first)
+                    if escape:
+                        escape = False
                         continue
-                        
+                    if char == '\\':
+                        escape = True
+                        continue
+                    if char == '"':
+                        in_string = not in_string
+                        continue
+                    
+                    if not in_string:
+                        if char == '{':
+                            balance += 1
+                        elif char == '}':
+                            balance -= 1
+                            if balance == 0:
+                                candidate = response[start_idx : i + 1]
+                                try:
+                                    parsed = json.loads(candidate)
+                                    if isinstance(parsed, dict) and "tool" in parsed:
+                                        return parsed
+                                except (json.JSONDecodeError, ValueError):
+                                    pass
+                                break  # Move to next opening brace candidate
             return None
-            
         except Exception as e:
             logger.error(f"Tool parsing error: {e}")
             return None
@@ -583,7 +613,7 @@ RESPONSE FORMAT:
         if self.active_modes:
             parts.append("\n=== ACTIVE MODES (HIGH PRIORITY) ===")
             for mode in self.active_modes:
-                parts.append(f"\n[{mode['name'].upper()}]")
+                parts.append(f"\n[{mode['name']}]")
                 parts.append(mode['instruction'])
             parts.append("\n=== END ACTIVE MODES ===")
         
