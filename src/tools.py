@@ -23,13 +23,43 @@ Usage:
 """
 
 import os
+import math
 from datetime import datetime
 from pathlib import Path
 from typing import Any, Optional
 
 from duckduckgo_search import DDGS
 from fpdf import FPDF
-from simpleeval import simple_eval
+from simpleeval import simple_eval, DEFAULT_FUNCTIONS, DEFAULT_NAMES
+
+# Safe math functions and mathematical constants exposed to AST sandbox
+SAFE_MATH_FUNCTIONS = DEFAULT_FUNCTIONS.copy()
+SAFE_MATH_FUNCTIONS.update({
+    "sqrt": math.sqrt,
+    "sin": math.sin,
+    "cos": math.cos,
+    "tan": math.tan,
+    "asin": math.asin,
+    "acos": math.acos,
+    "atan": math.atan,
+    "log": math.log,
+    "log10": math.log10,
+    "exp": math.exp,
+    "pow": math.pow,
+    "floor": math.floor,
+    "ceil": math.ceil,
+    "round": round,
+    "abs": abs,
+    "min": min,
+    "max": max,
+})
+
+SAFE_MATH_NAMES = DEFAULT_NAMES.copy() if hasattr(DEFAULT_NAMES, "copy") else dict(DEFAULT_NAMES)
+SAFE_MATH_NAMES.update({
+    "pi": math.pi,
+    "e": math.e,
+    "tau": math.tau,
+})
 
 # -----------------------------------------------------------------------------
 # Configuration
@@ -414,7 +444,7 @@ def evaluate_math_expression(expression: str = "", **kwargs) -> str:
             return "Error: Expression cannot be empty."
 
         expression = str(expression).strip()
-        result = simple_eval(expression)
+        result = simple_eval(expression, functions=SAFE_MATH_FUNCTIONS, names=SAFE_MATH_NAMES)
 
         return f"Result: {expression} = {result}"
 
