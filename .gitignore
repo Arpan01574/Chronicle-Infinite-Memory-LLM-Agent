@@ -37,6 +37,10 @@ user_downloads/
 data/memory.json
 data/history.jsonl
 
+# --- Private Evaluation Data ---
+# Prompt corpus contains personal and private prompt content
+/evals/prompt.py
+
 # Keep the data folder structure, but ignore the contents above
 # (This trick allows git to track the folder 'data' but not the files inside)
 !data/.gitkeep
